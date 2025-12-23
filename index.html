@@ -3,22 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>F1 Hub Pro - Ultimate (Radio & Flags)</title>
+    <title>F1 Hub Pro - Ultimate Calendar</title>
     <style>
         :root { --f1-red: #e10600; --f1-black: #15151e; --f1-dark: #1f1f27; --f1-cyan: #00d2be; --f1-yellow: #fff200; --f1-green: #4CAF50; }
         body { background: var(--f1-black); color: white; font-family: 'Segoe UI', sans-serif; margin: 0; overflow: hidden; height: 100vh; }
         
-        /* Header */
+        /* Header Otimizado para Seleção */
         .header { background: var(--f1-dark); padding: 10px; display: flex; gap: 10px; border-bottom: 3px solid var(--f1-red); align-items: center; height: 50px; box-sizing: border-box; z-index: 10; position: relative; }
-        input, select, button { background: #333; color: white; border: 1px solid #444; padding: 6px; border-radius: 4px; font-size: 12px; }
-        button { background: var(--f1-red); border: none; font-weight: bold; cursor: pointer; }
+        input, select, button { background: #333; color: white; border: 1px solid #444; padding: 6px; border-radius: 4px; font-size: 12px; height: 30px; }
+        select { width: 180px; text-overflow: ellipsis; }
+        button { background: var(--f1-red); border: none; font-weight: bold; cursor: pointer; padding: 0 15px; }
         button:hover { opacity: 0.9; }
+        button:disabled { background: #555; cursor: not-allowed; }
 
         /* Layout Principal */
         .main-layout { display: grid; height: calc(100vh - 130px); grid-template-columns: 260px 1fr 320px; gap: 10px; padding: 10px; display: none; box-sizing: border-box; }
         .active { display: grid; }
 
-        /* Torre de Tempos */
+        /* Torre */
         .timing-tower { background: rgba(0,0,0,0.3); border-radius: 10px; overflow-y: auto; border: 1px solid #333; display: flex; flex-direction: column; }
         .tower-header { padding: 8px; font-weight: bold; font-size: 12px; background: #222; border-bottom: 1px solid #444; text-align: center; }
         .tower-row { display: flex; align-items: center; height: 36px; border-bottom: 1px solid #222; cursor: pointer; padding-right: 10px; transition: background 0.2s; }
@@ -31,8 +33,6 @@
 
         /* Painel Central */
         .center-panel { display: flex; flex-direction: column; gap: 10px; height: 100%; min-width: 0; }
-        
-        /* Barra de Status da Bandeira */
         .flag-bar { 
             height: 30px; border-radius: 6px; display: flex; align-items: center; justify-content: center; 
             font-weight: 900; letter-spacing: 2px; font-size: 14px; text-transform: uppercase;
@@ -44,7 +44,6 @@
         .flag-sc { background: #ff9800; color: black; }
 
         .top-info { background: #1f1f27; padding: 10px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; height: 50px; box-sizing: border-box; }
-        
         #canvasContainer { flex: 2; background: #000; border-radius: 10px; border: 1px solid #333; position: relative; overflow: hidden; }
         #chartContainer { flex: 1; background: #000; border-radius: 10px; border: 1px solid #333; position: relative; overflow: hidden; }
         canvas { position: absolute; top: 0; left: 0; width: 100% !important; height: 100% !important; }
@@ -53,41 +52,30 @@
         .right-panel { display: flex; flex-direction: column; gap: 10px; overflow: hidden; }
         .card { background: var(--f1-dark); border-radius: 10px; padding: 15px; border-top: 3px solid var(--f1-red); position: relative; }
         .speed-val { font-size: 48px; font-weight: 900; font-family: monospace; text-align: center; display: block; line-height: 1; }
-        
-        /* Pedais */
         .pedals { display: flex; gap: 8px; margin-top: 10px; height: 80px; }
         .pedal-col { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; }
         .pedal-bg { width: 100%; background: #111; height: 100%; border-radius: 3px; position: relative; overflow: hidden; border: 1px solid #444; }
         .pedal-fill { position: absolute; bottom: 0; width: 100%; transition: height 0.05s; }
         .pedal-label { font-size: 10px; margin-top: 4px; color: #888; font-weight: bold; }
 
-        /* DRS Lógica Visual */
         .drs-badge { 
             position: absolute; top: 15px; right: 15px; 
             background: #222; color: #444; border: 2px solid #333;
             font-size: 10px; font-weight: bold; padding: 4px 8px; border-radius: 4px; 
             transition: all 0.2s; 
         }
-        /* Disponível mas não ativo */
         .drs-available { border-color: var(--f1-cyan); color: var(--f1-cyan); background: #222; box-shadow: 0 0 5px rgba(0, 210, 190, 0.3); }
-        /* Ativo (Asa aberta) */
         .drs-active { background: var(--f1-cyan); color: #000; border-color: var(--f1-cyan); box-shadow: 0 0 15px rgba(0, 210, 190, 0.6); }
 
-        /* Painel de Rádio */
-        .radio-list { 
-            height: 180px; overflow-y: auto; background: #111; border-radius: 6px; border: 1px solid #333; margin-top: 5px; 
-            display: flex; flex-direction: column; gap: 2px;
-        }
+        .radio-list { height: 180px; overflow-y: auto; background: #111; border-radius: 6px; border: 1px solid #333; margin-top: 5px; display: flex; flex-direction: column; gap: 2px; }
         .radio-item { padding: 8px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #222; font-size: 11px; transition: background 0.2s; }
         .radio-item:hover { background: #222; }
         .radio-item.playing { background: #1f2820; border-left: 3px solid #4CAF50; }
         .play-icon { cursor: pointer; width: 20px; height: 20px; background: #333; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 8px; }
         .play-icon:hover { background: var(--f1-red); }
 
-        /* Footer */
         .footer { position: fixed; bottom: 0; width: 100%; background: var(--f1-dark); padding: 15px 25px; display: flex; align-items: center; gap: 20px; border-top: 1px solid #333; height: 80px; box-sizing: border-box; z-index: 100; }
         #timeSlider { flex-grow: 1; accent-color: var(--f1-red); cursor: pointer; }
-        
         #status { position: fixed; top: 80px; right: 20px; padding: 8px 15px; border-radius: 5px; font-size: 11px; font-weight: bold; z-index: 1000; display: none; background: #ff9800; color: black; }
     </style>
 </head>
@@ -97,10 +85,16 @@
     <audio id="radioPlayer" style="display:none;"></audio>
 
     <div class="header">
-        <input type="number" id="year" value="2024" style="width: 60px;">
-        <input type="text" id="country" value="Brazil" style="width: 90px;">
-        <button onclick="fetchSessions()">BUSCAR</button>
-        <select id="sessionSel" style="display:none;" onchange="initDashboard()"></select>
+        <input type="number" id="year" value="2024" style="width: 60px; text-align:center;">
+        <button onclick="fetchCalendar()" id="loadBtn">CARREGAR ANO</button>
+        
+        <select id="circuitSel" style="display:none;" onchange="filterSessions()">
+            <option value="">Selecione o GP...</option>
+        </select>
+        
+        <select id="sessionSel" style="display:none;" onchange="initDashboard()">
+            <option value="">Selecione a Sessão...</option>
+        </select>
     </div>
 
     <div id="mainUI" class="main-layout">
@@ -123,34 +117,23 @@
             <div class="card">
                 <div id="drsBadge" class="drs-badge">DRS</div>
                 <div id="driverTitle" style="color:var(--f1-cyan); font-weight:bold; text-align:center; margin-bottom:8px; font-size: 15px;">---</div>
-                
                 <span class="speed-val" id="speedVal">0</span>
                 <div style="text-align:center; color:#666; font-size:10px; margin-bottom:10px;">KM/H</div>
-
                 <div class="pedals">
-                    <div class="pedal-col">
-                        <div class="pedal-bg"><div id="thrFill" class="pedal-fill" style="background:#4CAF50;"></div></div>
-                        <div class="pedal-label">THR</div>
-                    </div>
-                    <div class="pedal-col">
-                        <div class="pedal-bg"><div id="brkFill" class="pedal-fill" style="background:#e10600;"></div></div>
-                        <div class="pedal-label">BRK</div>
-                    </div>
+                    <div class="pedal-col"><div class="pedal-bg"><div id="thrFill" class="pedal-fill" style="background:#4CAF50;"></div></div><div class="pedal-label">THR</div></div>
+                    <div class="pedal-col"><div class="pedal-bg"><div id="brkFill" class="pedal-fill" style="background:#e10600;"></div></div><div class="pedal-label">BRK</div></div>
                 </div>
             </div>
-
             <div class="card" style="display:flex; justify-content:space-around; text-align:center; font-family:monospace; padding:10px;">
                 <div><small style="opacity:0.6">GEAR</small><br><b id="gearVal" style="font-size:24px; color:var(--f1-cyan)">-</b></div>
                 <div><small style="opacity:0.6">RPM</small><br><b id="rpmVal" style="font-size:24px">0</b></div>
             </div>
-
             <div class="card" style="padding:10px; display:flex; flex-direction:column; flex-grow:1; min-height:0;">
                 <div style="font-size:12px; font-weight:bold; color:#888; margin-bottom:5px; display:flex; justify-content:space-between;">
-                    <span>TEAM RADIO</span>
-                    <span id="radioCount" style="color:var(--f1-red)">0</span>
+                    <span>TEAM RADIO</span><span id="radioCount" style="color:var(--f1-red)">0</span>
                 </div>
                 <div id="radioList" class="radio-list">
-                    <div style="padding:20px; text-align:center; color:#444; font-size:10px;">Selecione um piloto para carregar rádios.</div>
+                    <div style="padding:20px; text-align:center; color:#444; font-size:10px;">Carregue uma sessão...</div>
                 </div>
             </div>
         </div>
@@ -163,12 +146,13 @@
     </div>
 
     <script>
+        let allSessionsCache = [];
         let tele = [], locs = [], laps = [], positions = [], intervals = [], raceControl = [], radios = [], drivers = {};
         let isPlaying = false, animationFrame = null;
         let sessionStart, sessionEnd, currentNum = null;
         let virtualTime = 0, lastRealTime = 0;
         const bufferDelay = 500;
-        let drsEnabledGlobal = false; // Controle global via Race Control
+        let drsEnabledGlobal = false;
 
         const trackCanvas = document.getElementById('trackCanvas'), tCtx = trackCanvas.getContext('2d');
         const chartCanvas = document.getElementById('telemetryChart'), cCtx = chartCanvas.getContext('2d');
@@ -192,20 +176,91 @@
             try { const r = await fetch(`https://api.openf1.org/v1/${path}`); return r.ok ? await r.json() : []; } catch (e) { return []; }
         }
 
-        async function fetchSessions() {
-            const data = await api(`sessions?year=${document.getElementById('year').value}&country_name=${document.getElementById('country').value}`);
-            const sel = document.getElementById('sessionSel');
-            sel.innerHTML = '<option value="">Sessão...</option>' + data.map(s => `<option value="${s.session_key}" data-start="${s.date_start}" data-end="${s.date_end}">${s.session_name}</option>`).join('');
-            sel.style.display = 'block';
+        // --- NOVA LÓGICA DE SELEÇÃO DE CALENDÁRIO ---
+
+        async function fetchCalendar() {
+            const year = document.getElementById('year').value;
+            const btn = document.getElementById('loadBtn');
+            const cSel = document.getElementById('circuitSel');
+            const sSel = document.getElementById('sessionSel');
+
+            btn.disabled = true; btn.innerText = "BUSCANDO...";
+            showStatus("DOWNLOADING CALENDAR...");
+
+            // Busca TODAS as sessões do ano
+            allSessionsCache = await api(`sessions?year=${year}`);
+
+            if (allSessionsCache.length === 0) {
+                showStatus("NO DATA FOR THIS YEAR");
+                btn.disabled = false; btn.innerText = "CARREGAR ANO";
+                return;
+            }
+
+            // Agrupa por meeting_key (Fim de semana do GP)
+            const meetings = {};
+            allSessionsCache.forEach(s => {
+                if (!meetings[s.meeting_key]) {
+                    meetings[s.meeting_key] = {
+                        name: s.meeting_name || s.location,
+                        country: s.country_name,
+                        key: s.meeting_key,
+                        start: new Date(s.date_start)
+                    };
+                } else {
+                    // Mantém a data mais antiga para ordenação correta
+                    const d = new Date(s.date_start);
+                    if (d < meetings[s.meeting_key].start) meetings[s.meeting_key].start = d;
+                }
+            });
+
+            // Converte para array e ordena cronologicamente
+            const sortedMeetings = Object.values(meetings).sort((a,b) => a.start - b.start);
+
+            // Popula o Select de Circuitos
+            cSel.innerHTML = '<option value="">Selecione o GP...</option>' + 
+                sortedMeetings.map(m => `<option value="${m.key}">${m.country} - ${m.name}</option>`).join('');
+            
+            cSel.style.display = 'block';
+            sSel.style.display = 'none'; // Esconde sessões até escolher o GP
+            btn.disabled = false; btn.innerText = "CARREGAR ANO";
+            showStatus("");
         }
+
+        function filterSessions() {
+            const mKey = document.getElementById('circuitSel').value;
+            const sSel = document.getElementById('sessionSel');
+            
+            if (!mKey) {
+                sSel.style.display = 'none';
+                return;
+            }
+
+            // Filtra sessões que pertencem a esse meeting e ordena
+            const sessionList = allSessionsCache
+                .filter(s => s.meeting_key == mKey)
+                .sort((a,b) => new Date(a.date_start) - new Date(b.date_start));
+
+            sSel.innerHTML = '<option value="">Selecione a Sessão...</option>' + 
+                sessionList.map(s => `<option value="${s.session_key}" data-start="${s.date_start}" data-end="${s.date_end}">${s.session_name}</option>`).join('');
+            
+            sSel.style.display = 'block';
+        }
+
+        // --- FIM DA NOVA LÓGICA ---
 
         async function initDashboard() {
             const opt = document.getElementById('sessionSel').selectedOptions[0];
+            if (!opt.value) return;
+
             sessionStart = new Date(opt.dataset.start);
             sessionEnd = new Date(opt.dataset.end || new Date(sessionStart.getTime() + 7200000));
+            
+            // Limpa dados anteriores
+            tele = []; locs = []; laps = []; positions = []; drivers = {}; radios = [];
+            document.getElementById('driverList').innerHTML = '';
+            
             showStatus("SYNCING SESSION DATA...");
             
-            // Carregamento pesado inicial (Grid, Voltas, Intervalos, Controle de Prova)
             const [dData, pData, lData, iData, rcData] = await Promise.all([
                 api(`drivers?session_key=${opt.value}`),
                 api(`position?session_key=${opt.value}`),
@@ -227,12 +282,8 @@
             currentNum = num; tele = []; locs = []; radios = []; virtualTime = 0;
             showStatus(`LOADING ${drivers[num].name_acronym} & RADIO...`);
             
-            // Carrega rádios do piloto específico
             api(`team_radio?session_key=${document.getElementById('sessionSel').value}&driver_number=${num}`)
-                .then(r => {
-                    radios = r;
-                    updateRadioList();
-                });
+                .then(r => { radios = r; updateRadioList(); });
 
             let pointer = new Date(sessionStart);
             while(pointer < sessionEnd) {
@@ -261,38 +312,27 @@
             let i = 0; while(i < tele.length - 2 && new Date(tele[i+1].date).getTime() < target) i++;
             const d1 = tele[i], d2 = tele[i+1];
             const factor = (target - new Date(d1.date).getTime()) / (new Date(d2.date).getTime() - new Date(d1.date).getTime() || 1);
-            
             let j = 0; while(j < locs.length - 2 && new Date(locs[j+1].date).getTime() < target) j++;
             const l1 = locs[j], l2 = locs[j+1];
             const lFactor = (target - new Date(l1.date).getTime()) / (new Date(l2.date).getTime() - new Date(l1.date).getTime() || 1);
             
             return {
-                speed: lerp(d1.speed, d2.speed, factor), 
-                rpm: lerp(d1.rpm, d2.rpm, factor),
-                throttle: lerp(d1.throttle, d2.throttle, factor), 
-                brake: lerp(d1.brake, d2.brake, factor),
-                gear: d1.n_gear, 
-                drs: d1.drs, 
-                x: lerp(l1.x, l2.x, lFactor), 
-                y: lerp(l1.y, l2.y, lFactor), 
-                date: new Date(target)
+                speed: lerp(d1.speed, d2.speed, factor), rpm: lerp(d1.rpm, d2.rpm, factor),
+                throttle: lerp(d1.throttle, d2.throttle, factor), brake: lerp(d1.brake, d2.brake, factor),
+                gear: d1.n_gear, drs: d1.drs, x: lerp(l1.x, l2.x, lFactor), y: lerp(l1.y, l2.y, lFactor), date: new Date(target)
             };
         }
 
         function loop(now) {
             if(!isPlaying) return;
-            const dt = lastRealTime ? now - lastRealTime : 0;
-            lastRealTime = now;
-            virtualTime += dt;
-            render();
-            animationFrame = requestAnimationFrame(loop);
+            const dt = lastRealTime ? now - lastRealTime : 0; lastRealTime = now; virtualTime += dt;
+            render(); animationFrame = requestAnimationFrame(loop);
         }
 
         function render() {
             if (tele.length < 2 || locs.length < 2) return;
             const data = getInterpolatedData(virtualTime);
             
-            // Atualiza dados básicos
             document.getElementById('timeVal').innerText = new Date(data.date - sessionStart).toISOString().substr(11, 8);
             document.getElementById('speedVal').innerText = Math.round(data.speed);
             document.getElementById('gearVal').innerText = data.gear || 'N';
@@ -302,80 +342,37 @@
             document.getElementById('timeSlider').value = virtualTime;
             document.getElementById('clock').innerText = data.date.toLocaleTimeString();
 
-            // === LÓGICA DE DRS & BANDEIRAS ===
             processRaceControl(data.date);
-
-            // Atualiza Badge DRS
-            // Lógica: Se drsEnabledGlobal == true -> Borda Ciano. Se telemetry.drs >= 10 -> Fundo Ciano.
             const drsEl = document.getElementById('drsBadge');
-            drsEl.className = 'drs-badge'; // Reset
-            if (data.drs >= 10) {
-                drsEl.classList.add('drs-active');
-            } else if (drsEnabledGlobal) {
-                drsEl.classList.add('drs-available');
-            }
+            drsEl.className = 'drs-badge'; 
+            if (data.drs >= 10) drsEl.classList.add('drs-active');
+            else if (drsEnabledGlobal) drsEl.classList.add('drs-available');
 
-            // Atualiza Rádio (Destaque visual)
             highlightCurrentRadio(data.date);
-
-            // Volta atual
+            
             const cLap = laps.filter(l => l.driver_number == currentNum).reverse().find(l => new Date(l.date_start) <= data.date);
             document.getElementById('lapVal').innerText = cLap ? cLap.lap_number : "--";
 
-            // Desenhos
-            drawMap(data.x, data.y);
-            drawChart(data.date);
-
-            // Atualiza Torre (Throttle para performance)
+            drawMap(data.x, data.y); drawChart(data.date);
             if(Math.round(virtualTime/100) % 5 === 0) updateTower(data.date);
         }
 
-        // === RACE CONTROL LOGIC ===
         function processRaceControl(nowDate) {
-            // Pega a última mensagem até o momento atual
             const validMsgs = raceControl.filter(m => new Date(m.date) <= nowDate);
             if(validMsgs.length === 0) return;
-
             const lastMsg = validMsgs[validMsgs.length - 1];
             const statusEl = document.getElementById('flagStatus');
             
-            // Lógica para definir cor e texto da barra
-            // Categorias: GREEN, YELLOW, SAFETY CAR, RED, VSC
-            let msg = lastMsg.message || "";
-            let category = lastMsg.category || "";
-            let flagClass = "";
-            let displayTxt = msg;
+            let msg = lastMsg.message || "", category = lastMsg.category || "", flagClass = "", displayTxt = msg;
+            if (msg.includes("GREEN") || (category == "Flag" && lastMsg.flag == "GREEN")) { flagClass = "flag-green"; displayTxt = "GREEN FLAG"; }
+            else if (msg.includes("YELLOW") || (category == "Flag" && lastMsg.flag == "YELLOW")) { flagClass = "flag-yellow"; displayTxt = "YELLOW FLAG"; }
+            else if (msg.includes("SAFETY CAR") || msg.includes("SC DEPLOYED")) { flagClass = "flag-sc"; displayTxt = "SAFETY CAR"; }
+            else if (msg.includes("VIRTUAL") || msg.includes("VSC")) { flagClass = "flag-sc"; displayTxt = "VIRTUAL SAFETY CAR"; }
+            else if (msg.includes("RED") || (category == "Flag" && lastMsg.flag == "RED")) { flagClass = "flag-red"; displayTxt = "RED FLAG"; }
+            else if (msg.includes("TRACK CLEAR")) { flagClass = "flag-green"; displayTxt = "TRACK CLEAR"; }
+            
+            statusEl.className = "flag-bar " + flagClass; statusEl.innerText = displayTxt;
 
-            if (msg.includes("GREEN") || category == "Flag" && lastMsg.flag == "GREEN") {
-                flagClass = "flag-green";
-                displayTxt = "GREEN FLAG";
-            } else if (msg.includes("YELLOW") || category == "Flag" && lastMsg.flag == "YELLOW") {
-                flagClass = "flag-yellow";
-                displayTxt = "YELLOW FLAG";
-            } else if (msg.includes("SAFETY CAR") || msg.includes("SC DEPLOYED")) {
-                flagClass = "flag-sc";
-                displayTxt = "SAFETY CAR";
-            } else if (msg.includes("VIRTUAL") || msg.includes("VSC")) {
-                flagClass = "flag-sc";
-                displayTxt = "VIRTUAL SAFETY CAR";
-            } else if (msg.includes("RED") || category == "Flag" && lastMsg.flag == "RED") {
-                flagClass = "flag-red";
-                displayTxt = "RED FLAG";
-            } else if (msg.includes("TRACK CLEAR")) {
-                flagClass = "flag-green";
-                displayTxt = "TRACK CLEAR";
-            } else {
-                // Mensagens informativas padrão
-                flagClass = ""; 
-            }
-
-            // Aplica classes apenas se mudou
-            statusEl.className = "flag-bar " + flagClass;
-            statusEl.innerText = displayTxt;
-
-            // Lógica Global de DRS
-            // Verifica histórico de mensagens para ver se DRS foi ativado ou desativado
-            // Itera de trás pra frente
             let tempDrs = false;
             for (let i = validMsgs.length - 1; i >= 0; i--) {
                 const m = validMsgs[i].message;
@@ -385,132 +382,72 @@
             drsEnabledGlobal = tempDrs;
         }
 
-        // === RADIO LOGIC ===
         function updateRadioList() {
             const list = document.getElementById('radioList');
             document.getElementById('radioCount').innerText = radios.length;
-            
             list.innerHTML = radios.map((r, i) => `
                 <div class="radio-item" id="radio-${i}" data-time="${new Date(r.date).getTime()}">
                     <div class="play-icon" onclick="playRadio('${r.recording_url}')">▶</div>
-                    <div style="flex-grow:1">
-                        <div style="color:#ccc">${new Date(r.date).toLocaleTimeString()}</div>
-                    </div>
-                </div>
-            `).join('');
+                    <div style="flex-grow:1"><div style="color:#ccc">${new Date(r.date).toLocaleTimeString()}</div></div>
+                </div>`).join('');
         }
 
         function highlightCurrentRadio(nowDate) {
             const nowMs = nowDate.getTime();
-            // Procura rádios que aconteceram nos últimos 10 segundos virtuais
             radios.forEach((r, i) => {
                 const rTime = new Date(r.date).getTime();
                 const el = document.getElementById(`radio-${i}`);
                 if (el) {
                     if (nowMs >= rTime && nowMs < rTime + 5000) {
                         el.classList.add('playing');
-                        // Scroll automático para o item
-                        if(!el.dataset.scrolled) {
-                            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                            el.dataset.scrolled = "true";
-                        }
-                    } else {
-                        el.classList.remove('playing');
-                        delete el.dataset.scrolled;
-                    }
+                        if(!el.dataset.scrolled) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.dataset.scrolled = "true"; }
+                    } else { el.classList.remove('playing'); delete el.dataset.scrolled; }
                 }
             });
         }
 
-        function playRadio(url) {
-            radioPlayer.src = url;
-            radioPlayer.play();
-        }
+        function playRadio(url) { radioPlayer.src = url; radioPlayer.play(); }
 
-        // === DRAWING & TOWER (Mantido otimizado) ===
-        function togglePlay() {
-            isPlaying = !isPlaying;
-            document.getElementById('playBtn').innerText = isPlaying ? "PAUSE" : "PLAY";
-            if(isPlaying) { lastRealTime = performance.now(); animationFrame = requestAnimationFrame(loop); } 
-            else cancelAnimationFrame(animationFrame);
-        }
-
+        function togglePlay() { isPlaying = !isPlaying; document.getElementById('playBtn').innerText = isPlaying ? "PAUSE" : "PLAY"; if(isPlaying) { lastRealTime = performance.now(); animationFrame = requestAnimationFrame(loop); } else cancelAnimationFrame(animationFrame); }
         function drawMap(carX, carY) {
-            const dpr = window.devicePixelRatio || 1;
-            const w = trackCanvas.width / dpr, h = trackCanvas.height / dpr;
+            const dpr = window.devicePixelRatio || 1; const w = trackCanvas.width / dpr, h = trackCanvas.height / dpr;
             tCtx.save(); tCtx.scale(dpr, dpr); tCtx.clearRect(0, 0, w, h);
-
             const padding = 40;
             const xCoords = locs.map(l => l.x), yCoords = locs.map(l => l.y);
-            const minX = Math.min(...xCoords), maxX = Math.max(...xCoords);
-            const minY = Math.min(...yCoords), maxY = Math.max(...yCoords);
-            
+            const minX = Math.min(...xCoords), maxX = Math.max(...xCoords), minY = Math.min(...yCoords), maxY = Math.max(...yCoords);
             const trackW = maxX - minX, trackH = maxY - minY;
             const scale = Math.min((w - padding*2) / (trackW || 1), (h - padding*2) / (trackH || 1));
-            const offX = (w - trackW * scale) / 2 - minX * scale;
-            const offY = (h - trackH * scale) / 2 - minY * scale;
-            const tx = (x) => x * scale + offX;
-            const ty = (y) => h - (y * scale + offY);
-
+            const offX = (w - trackW * scale) / 2 - minX * scale, offY = (h - trackH * scale) / 2 - minY * scale;
+            const tx = (x) => x * scale + offX, ty = (y) => h - (y * scale + offY);
             tCtx.strokeStyle = "#333"; tCtx.lineWidth = 3; tCtx.beginPath();
             locs.filter((_, i) => i % 5 === 0).forEach((l, i) => { i === 0 ? tCtx.moveTo(tx(l.x), ty(l.y)) : tCtx.lineTo(tx(l.x), ty(l.y)); });
             tCtx.stroke();
-
-            tCtx.beginPath(); tCtx.fillStyle = "#00d2be"; tCtx.shadowBlur = 15; tCtx.shadowColor = "#00d2be";
-            tCtx.arc(tx(carX), ty(carY), 7, 0, Math.PI * 2); tCtx.fill();
-            tCtx.restore();
+            tCtx.beginPath(); tCtx.fillStyle = "#00d2be"; tCtx.shadowBlur = 15; tCtx.shadowColor = "#00d2be"; tCtx.arc(tx(carX), ty(carY), 7, 0, Math.PI * 2); tCtx.fill(); tCtx.restore();
         }
 
         function drawChart(targetDate) {
-            const dpr = window.devicePixelRatio || 1;
-            const w = chartCanvas.width / dpr, h = chartCanvas.height / dpr;
+            const dpr = window.devicePixelRatio || 1; const w = chartCanvas.width / dpr, h = chartCanvas.height / dpr;
             cCtx.save(); cCtx.scale(dpr, dpr); cCtx.clearRect(0, 0, w, h);
-
-            const points = 200;
-            let currentIdx = 0; 
-            const targetMs = targetDate.getTime();
+            const points = 200; let currentIdx = 0; const targetMs = targetDate.getTime();
             while(currentIdx < tele.length - 1 && new Date(tele[currentIdx].date).getTime() < targetMs) currentIdx++;
-            
-            const slice = tele.slice(Math.max(0, currentIdx - points), currentIdx);
-            const step = w / points;
-
+            const slice = tele.slice(Math.max(0, currentIdx - points), currentIdx); const step = w / points;
             cCtx.strokeStyle = "#ff9800"; cCtx.lineWidth = 1; cCtx.beginPath();
-            slice.forEach((p, i) => { 
-                const x = i * step; const y = h - (p.rpm / 15000 * h); 
-                i === 0 ? cCtx.moveTo(x, y) : cCtx.lineTo(x, y); 
-            });
-            cCtx.stroke();
-
+            slice.forEach((p, i) => { const x = i * step; const y = h - (p.rpm / 15000 * h); i === 0 ? cCtx.moveTo(x, y) : cCtx.lineTo(x, y); }); cCtx.stroke();
             cCtx.strokeStyle = "#00d2be"; cCtx.lineWidth = 2; cCtx.beginPath();
-            slice.forEach((p, i) => { 
-                const x = i * step; const y = h - (p.speed / 350 * h); 
-                i === 0 ? cCtx.moveTo(x, y) : cCtx.lineTo(x, y); 
-            });
-            cCtx.stroke();
-            cCtx.restore();
+            slice.forEach((p, i) => { const x = i * step; const y = h - (p.speed / 350 * h); i === 0 ? cCtx.moveTo(x, y) : cCtx.lineTo(x, y); }); cCtx.stroke(); cCtx.restore();
         }
 
         function updateTower(now) {
-            const list = document.getElementById('driverList');
-            const nowMs = now.getTime();
+            const list = document.getElementById('driverList'); const nowMs = now.getTime();
             const posSnap = {}; intervals.forEach(i => { if(new Date(i.date).getTime() <= nowMs) posSnap[i.driver_number] = i; });
             const pData = {}; positions.forEach(p => { if(new Date(p.date).getTime() <= nowMs) pData[p.driver_number] = p.position; });
-
             const sorted = Object.keys(drivers).sort((a,b) => (pData[a]||99) - (pData[b]||99));
-            
             list.innerHTML = sorted.map(n => {
-                const gapData = posSnap[n];
-                let gapText = "";
-                if (pData[n] == 1) gapText = "LDR";
-                else if (gapData && gapData.gap_to_leader) gapText = `+${parseFloat(gapData.gap_to_leader).toFixed(1)}`;
-
-                return `
-                <div class="tower-row ${n == currentNum ? 'selected' : ''}" onclick="switchDriver('${n}')">
-                    <div class="pos">${pData[n] || '-'}</div>
-                    <div class="stripe" style="background:#${drivers[n].team_colour}"></div>
-                    <div class="name">${drivers[n].name_acronym}</div>
-                    <div class="gap">${gapText}</div>
-                </div>`;
+                const gapData = posSnap[n]; let gapText = "";
+                if (pData[n] == 1) gapText = "LDR"; else if (gapData && gapData.gap_to_leader) gapText = `+${parseFloat(gapData.gap_to_leader).toFixed(1)}`;
+                return `<div class="tower-row ${n == currentNum ? 'selected' : ''}" onclick="switchDriver('${n}')">
+                    <div class="pos">${pData[n] || '-'}</div><div class="stripe" style="background:#${drivers[n].team_colour}"></div>
+                    <div class="name">${drivers[n].name_acronym}</div><div class="gap">${gapText}</div></div>`;
             }).join('');
         }
 
