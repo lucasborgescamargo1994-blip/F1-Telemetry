@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>F1 Hub Pro Mobile</title>
+    <style>
+        :root { --f1-red: #e10600; --f1-black: #15151e; --f1-dark: #1f1f27; --f1-cyan: #00d2be; --f1-yellow: #fff200; --f1-green: #4CAF50; }
+        body { background: var(--f1-black); color: white; font-family: 'Segoe UI', sans-serif; margin: 0; overflow: hidden; height: 100vh; touch-action: none; }
+        
+        /* Header Responsivo */
+        .header { background: var(--f1-dark); padding: 5px 10px; display: flex; gap: 5px; border-bottom: 2px solid var(--f1-red); align-items: center; flex-wrap: wrap; z-index: 100; }
+        input, select, button { background: #333; color: white; border: 1px solid #444; padding: 5px; border-radius: 4px; font-size: 11px; height: 28px; }
+        button { background: var(--f1-red); border: none; font-weight: bold; }
+
+        /* Layout Principal Adaptável */
+        .main-layout { 
+            display: none; 
+            height: calc(100vh - 140px); 
+            grid-template-columns: 1fr; 
+            grid-template-rows: auto 1fr auto; 
+            gap: 5px; 
+            padding: 5px; 
+        }
+        @media (min-width: 900px) {
+            .main-layout { grid-template-columns: 200px 1fr 280px; grid-template-rows: 1fr; }
+        }
+        .active { display: grid; }
+
+        /* Esconder torre em telas muito pequenas para focar no mapa */
+        @media (max-width: 600px) {
+            .timing-tower { display: none; }
+            .right-panel { font-size: 0.8em; }
+        }
+
+        .timing-tower { background: #111; border-radius: 8px; overflow-y: auto; border: 1px solid #333; max-height: 150px; }
+        @media (min-width: 900px) { .timing-tower { max-height: none; } }
+
+        .center-panel { display: flex; flex-direction: column; gap: 5px; position: relative; min-height: 250px; }
+        #canvasContainer { flex: 1; background: #000; border-radius: 8px; position: relative; overflow: hidden; touch-action: none; }
+        canvas { width: 100% !important; height: 100% !important; display: block; }
+
+        /* Telemetria e Dashboard */
+        .right-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+        @media (min-width: 900px) { .right-panel { display: flex; flex-direction: column; } }
+
+        .card { background: var(--f1-dark); border-radius: 8px; padding: 10px; border-top: 2px solid var(--f1-red); position: relative; }
+        .speed-val { font-size: 32px; font-weight: 900; text-align: center; display: block; }
+        
+        .pedals { display: flex; gap: 5px; height: 50px; margin-top: 5px; }
+        .pedal-bg { flex: 1; background: #111; position: relative; border-radius: 2px; border: 1px solid #444; overflow: hidden; }
+        .pedal-fill { position: absolute; bottom: 0; width: 100%; transition: height 0.05s; }
+
+        /* Controles de Rodapé */
+        .footer { position: fixed; bottom: 0; width: 100%; background: var(--f1-dark); padding: 10px; display: flex; align-items: center; gap: 10px; border-top: 1px solid #333; height: 70px; box-sizing: border-box; }
+        #timeSlider { flex-grow: 1; height: 30px; }
+
+        #status { position: fixed; top: 100px; left: 50%; transform: translateX(-50%); background: var(--f1-yellow); color: black; padding: 5px 15px; border-radius: 20px; font-weight: bold; font-size: 12px; z-index: 2000; display: none; }
+    </style>
+</head>
+<body>
+
+    <div id="status"></div>
+    
+    <div class="header">
+        <input type="number" id="year" value="2024" style="width: 50px;">
+        <button onclick="fetchCalendar()">OK</button>
+        <select id="circuitSel" style="display:none; max-width: 120px;" onchange="filterSessions()"></select>
+        <select id="sessionSel" style="display:none; max-width: 120px;" onchange="initDashboard()"></select>
+        <select id="mapMode" onchange="render()">
+            <option value="3d">CHASE CAM</option>
+            <option value="2d">STATIC 2D</option>
+        </select>
+    </div>
+
+    <div id="mainUI" class="main-layout">
+        <div class="timing-tower" id="driverList"></div>
+        
+        <div class="center-panel">
+            <div id="flagStatus" style="text-align:center; font-weight:bold; padding:4px; font-size:12px; background:#222;">TRACK CLEAR</div>
+            <div id="canvasContainer">
+                <canvas id="trackCanvas"></canvas>
+            </div>
+            <div style="height: 60px; background:#000; border-radius: 5px; margin-top:5px;">
+                <canvas id="telemetryChart"></canvas>
+            </div>
+        </div>
+
+        <div class="right-panel">
+            <div class="card">
+                <div id="driverTitle" style="font-size:10px; color:var(--f1-cyan); font-weight:bold;">DRIVER</div>
+                <span class="speed-val" id="speedVal">0</span>
+                <div class="pedals">
+                    <div class="pedal-bg"><div id="thrFill" class="pedal-fill" style="background:var(--f1-green);"></div></div>
+                    <div class="pedal-bg"><div id="brkFill" class="pedal-fill" style="background:var(--f1-red);"></div></div>
+                </div>
+            </div>
+            <div class="card" style="display:flex; flex-direction:column; justify-content:center; align-items:center;">
+                <small>GEAR</small>
+                <b id="gearVal" style="font-size:24px; color:var(--f1-cyan)">N</b>
+                <small id="rpmVal">0 RPM</small>
+            </div>
+        </div>
+    </div>
+
+    <div id="footer" class="footer" style="display:none;">
+        <button onclick="togglePlay()" id="playBtn" style="padding: 0 15px;">PLAY</button>
+        <input type="range" id="timeSlider" value="0" step="100" oninput="manualSeek()">
+    </div>
+
+    <script>
+        let tele = [], locs = [], laps = [], positions = [], drivers = {}, raceControl = [];
+        let isPlaying = false, virtualTime = 0, lastRealTime = 0, currentNum = null;
+        let mapZoom = 0.5, rotationAngle = 0;
+        let sessionStart;
+
+        // Controle de Touch para o Mapa
+        let lastTouchX = 0, lastTouchDist = 0;
+        const canvasCont = document.getElementById('canvasContainer');
+
+        canvasCont.addEventListener('touchstart', e => {
+            if (e.touches.length === 1) {
+                lastTouchX = e.touches[0].clientX;
+            } else if (e.touches.length === 2) {
+                lastTouchDist = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
+            }
+        }, {passive: false});
+
+        canvasCont.addEventListener('touchmove', e => {
+            e.preventDefault();
+            if (e.touches.length === 1) {
+                const deltaX = e.touches[0].clientX - lastTouchX;
+                rotationAngle += deltaX * 0.01;
+                lastTouchX = e.touches[0].clientX;
+            } else if (e.touches.length === 2) {
+                const dist = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
+                if (lastTouchDist > 0) {
+                    mapZoom *= (dist / lastTouchDist);
+                    mapZoom = Math.min(Math.max(0.1, mapZoom), 5);
+                }
+                lastTouchDist = dist;
+            }
+            if(!isPlaying) render();
+        }, {passive: false});
+
+        // API e Dados
+        async function api(path) {
+            try { const r = await fetch(`https://api.openf1.org/v1/${path}`); return r.ok ? await r.json() : []; } catch { return []; }
+        }
+
+        async function fetchCalendar() {
+            const year = document.getElementById('year').value;
+            showStatus("BUSCANDO...");
+            const data = await api(`sessions?year=${year}`);
+            if (data.length === 0) { showStatus("ERRO"); return; }
+            
+            const sessions = data.filter(s => s.session_name === 'Race' || s.session_name === 'Qualifying');
+            const cSel = document.getElementById('circuitSel');
+            cSel.innerHTML = sessions.map(s => `<option value="${s.session_key}" data-start="${s.date_start}">${s.location} - ${s.session_name}</option>`).join('');
+            cSel.style.display = 'block';
+            document.getElementById('sessionSel').style.display = 'block';
+            initDashboard();
+        }
+
+        async function initDashboard() {
+            const sel = document.getElementById('circuitSel');
+            const key = sel.value;
+            const opt = sel.selectedOptions[0];
+            sessionStart = new Date(opt.dataset.start);
+            
+            showStatus("SYNC...");
+            const [dData, pData, lData, rcData] = await Promise.all([
+                api(`drivers?session_key=${key}`),
+                api(`position?session_key=${key}`),
+                api(`laps?session_key=${key}`),
+                api(`race_control?session_key=${key}`)
+            ]);
+
+            dData.forEach(d => drivers[d.driver_number] = d);
+            positions = pData; laps = lData; raceControl = rcData;
+            
+            document.getElementById('mainUI').classList.add('active');
+            document.getElementById('footer').style.display = 'flex';
+            switchDriver(dData[0].driver_number);
+            showStatus("");
+        }
+
+        async function switchDriver(num) {
+            currentNum = num;
+            showStatus(`LENDO ${drivers[num].name_acronym}...`);
+            const key = document.getElementById('circuitSel').value;
+            
+            // Pega apenas os primeiros 15 min para performance mobile inicial
+            const startStr = sessionStart.toISOString();
+            const endStr = new Date(sessionStart.getTime() + 1000 * 60 * 60).toISOString();
+            
+            const [tData, lData] = await Promise.all([
+                api(`car_data?session_key=${key}&driver_number=${num}&date>=${startStr}&date<=${endStr}`),
+                api(`location?session_key=${key}&driver_number=${num}&date>=${startStr}&date<=${endStr}`)
+            ]);
+            
+            tele = tData; locs = lData;
+            document.getElementById('timeSlider').max = tele.length > 0 ? (new Date(tele[tele.length-1].date) - new Date(tele[0].date)) : 0;
+            document.getElementById('driverTitle').innerText = drivers[num].last_name.toUpperCase();
+            showStatus("");
+            render();
+        }
+
+        function togglePlay() {
+            isPlaying = !isPlaying;
+            document.getElementById('playBtn').innerText = isPlaying ? "PAUSE" : "PLAY";
+            if(isPlaying) {
+                lastRealTime = performance.now();
+                requestAnimationFrame(loop);
+            }
+        }
+
+        function loop(now) {
+            if(!isPlaying) return;
+            virtualTime += (now - lastRealTime);
+            lastRealTime = now;
+            render();
+            requestAnimationFrame(loop);
+        }
+
+        function render() {
+            if (tele.length < 2) return;
+            const target = new Date(tele[0].date).getTime() + virtualTime;
+            let i = 0; while(i < tele.length - 2 && new Date(tele[i+1].date).getTime() < target) i++;
+            const d = tele[i];
+            
+            let j = 0; while(j < locs.length - 2 && new Date(locs[j+1].date).getTime() < target) j++;
+            const l = locs[j];
+
+            // Atualiza UI
+            document.getElementById('speedVal').innerText = d.speed;
+            document.getElementById('gearVal').innerText = d.n_gear || 'N';
+            document.getElementById('rpmVal').innerText = d.rpm + " RPM";
+            document.getElementById('thrFill').style.height = d.throttle + "%";
+            document.getElementById('brkFill').style.height = d.brake + "%";
+            document.getElementById('timeSlider').value = virtualTime;
+
+            drawMap(l.x, l.y);
+        }
+
+        function drawMap(cx, cy) {
+            const canvas = document.getElementById('trackCanvas');
+            const ctx = canvas.getContext('2d');
+            const mode = document.getElementById('mapMode').value;
+            
+            // Ajuste de DPI
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = canvas.clientWidth * dpr;
+            canvas.height = canvas.clientHeight * dpr;
+            ctx.scale(dpr, dpr);
+
+            const w = canvas.clientWidth;
+            const h = canvas.clientHeight;
+
+            ctx.clearRect(0, 0, w, h);
+            ctx.save();
+            ctx.translate(w/2, h/2);
+            
+            if(mode === '3d') ctx.rotate(rotationAngle);
+
+            // Desenha Pista
+            ctx.strokeStyle = "#444";
+            ctx.lineWidth = 2 * mapZoom;
+            ctx.beginPath();
+            locs.forEach((pt, idx) => {
+                const x = (pt.x - cx) * mapZoom;
+                const y = (pt.y - cy) * mapZoom;
+                if(idx === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+            });
+            ctx.stroke();
+
+            // Desenha Carro
+            ctx.fillStyle = varColor('--f1-red');
+            ctx.beginPath();
+            ctx.arc(0, 0, 5, 0, Math.PI*2);
+            ctx.fill();
+            
+            ctx.restore();
+        }
+
+        function varColor(name) { return getComputedStyle(document.documentElement).getPropertyValue(name); }
+        function manualSeek() { virtualTime = parseInt(document.getElementById('timeSlider').value); if(!isPlaying) render(); }
+        function showStatus(txt) { const el = document.getElementById('status'); el.innerText = txt; el.style.display = txt ? 'block' : 'none'; }
+    </script>
+</body>
+</html>
