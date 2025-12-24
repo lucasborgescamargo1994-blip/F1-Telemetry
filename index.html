@@ -46,7 +46,16 @@
         .top-info { background: #1f1f27; padding: 10px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; height: 50px; box-sizing: border-box; }
         #canvasContainer { flex: 2; background: #000; border-radius: 10px; border: 1px solid #333; position: relative; overflow: hidden; }
         #chartContainer { flex: 1; background: #000; border-radius: 10px; border: 1px solid #333; position: relative; overflow: hidden; }
-        canvas { position: absolute; top: 0; left: 0; width: 100% !important; height: 100% !important; }
+        canvas { 
+    position: absolute; 
+    top: 0; 
+    left: 0; 
+    width: 100% !important; 
+    height: 100% !important;
+    image-rendering: -webkit-optimize-contrast; /* Para navegadores baseados em Chrome/Edge */
+    image-rendering: crisp-edges;
+    shape-rendering: geometricPrecision; /* Melhora a precisão das linhas do gráfico */
+}
 
         /* Painel Direito */
         .right-panel { display: flex; flex-direction: column; gap: 10px; overflow: hidden; }
@@ -95,6 +104,17 @@
         <select id="sessionSel" style="display:none;" onchange="initDashboard()">
             <option value="">Selecione a Sessão...</option>
         </select>
+		<select id="mapMode" onchange="render()">
+    <option value="2d">MAPA 2D (ESTÁTICO)</option>
+    <option value="3d">MAPA 3D (CHASE CAM)</option>
+	<option value="sim">SIM TRAINING (VOLANTE)</option>
+</select>
+<select id="mapMode" onchange="render()">
+    <option value="2d">MAPA 2D</option>
+    <option value="3d">MAPA 3D (GPS)</option>
+</select>
+<button onclick="changeZoom(1.2)"> + </button>
+<button onclick="changeZoom(0.8)"> - </button>
     </div>
 
     <div id="mainUI" class="main-layout">
@@ -110,7 +130,15 @@
                 <div style="text-align:right"><small style="opacity:0.6">SESSION TIME</small><br><b id="timeVal" style="font-size:16px">00:00:00</b></div>
             </div>
             <div id="canvasContainer"><canvas id="trackCanvas"></canvas></div>
-            <div id="chartContainer"><canvas id="telemetryChart"></canvas></div>
+       
+			<div id="chartContainer">
+    <canvas id="telemetryChart"></canvas>
+    <div style="position: absolute; top: 5px; right: 10px; display: flex; gap: 10px; font-size: 10px; background: rgba(0,0,0,0.5); padding: 5px; border-radius: 4px;">
+        <span style="color: #4CAF50;">● THR</span>
+        <span style="color: #e10600;">● BRK</span>
+        <span style="color: #fff200;">● RPM</span>
+    </div>
+</div>
         </div>
 
         <div class="right-panel">
@@ -146,6 +174,57 @@
     </div>
 
     <script>
+	
+let keys = {}; 
+let steerAngle = 0; 
+const maxSteer = Math.PI / 2; // Limite de 90 graus para cada lado (total 180)
+const steerSpeed = 0.03;
+const returnSpeed = 0.82;
+
+function updateInput() {
+    const mode = document.getElementById('mapMode').value;
+    
+    if (mode === 'sim') {
+        if (keys['ArrowLeft']) {
+            steerAngle = Math.max(-maxSteer, steerAngle - steerSpeed);
+        } else if (keys['ArrowRight']) {
+            steerAngle = Math.min(maxSteer, steerAngle + steerSpeed);
+        } else if (!isDragging) {
+            // Retorno automático ao centro
+            if (Math.abs(steerAngle) > 0.01) {
+                steerAngle *= returnSpeed;
+            } else {
+                steerAngle = 0;
+            }
+        }
+        rotationAngle = steerAngle; // Sincroniza o mapa
+    }
+    requestAnimationFrame(updateInput);
+}
+	// VARIÁVEIS GLOBAIS DE CONTROLE
+	window.addEventListener('keydown', (e) => { keys[e.code] = true; });
+window.addEventListener('keyup', (e) => { keys[e.code] = false; });
+
+// Função para atualizar a rotação continuamente se a tecla estiver pressionada
+function updateInput() {
+    if (document.getElementById('mapMode').value !== '2d') {
+        if (keys['ArrowLeft']) {
+            rotationAngle -= steerSpeed;
+            render();
+        }
+        if (keys['ArrowRight']) {
+            rotationAngle += steerSpeed;
+            render();
+        }
+    }
+    requestAnimationFrame(updateInput);
+}
+updateInput(); // Inicia o loop de verificação das teclas
+let lastChartIdx = 0;       // Resolve o erro do gráfico
+let mapZoom = 0.4;          // Controle de zoom
+let isDragging = false;     // Estado do clique
+let previousMouseX = 0;     // Auxiliar de rotação
+let rotationAngle = 0;      // Ângulo acumulado do mapa
         let allSessionsCache = [];
         let tele = [], locs = [], laps = [], positions = [], intervals = [], raceControl = [], radios = [], drivers = {};
         let isPlaying = false, animationFrame = null;
@@ -155,6 +234,32 @@
         let drsEnabledGlobal = false;
 
         const trackCanvas = document.getElementById('trackCanvas'), tCtx = trackCanvas.getContext('2d');
+		const mapCanvas = document.getElementById('trackCanvas');
+
+// Girar ao arrastar
+mapCanvas.addEventListener('mousedown', (e) => {
+    isDragging = true;
+    previousMouseX = e.clientX;
+});
+
+window.addEventListener('mouseup', () => isDragging = false);
+
+window.addEventListener('mousemove', (e) => {
+    if (isDragging && document.getElementById('mapMode').value === '3d') {
+        const deltaX = e.clientX - previousMouseX;
+        rotationAngle += deltaX * 0.01; 
+        previousMouseX = e.clientX;
+        render(); 
+    }
+});
+
+// Zoom no Scroll (Rodinha do mouse)
+mapCanvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    if (e.deltaY < 0) mapZoom *= 1.1; // Zoom In
+    else mapZoom *= 0.9;              // Zoom Out
+    render();
+}, { passive: false });
         const chartCanvas = document.getElementById('telemetryChart'), cCtx = chartCanvas.getContext('2d');
         const radioPlayer = document.getElementById('radioPlayer');
 
@@ -410,32 +515,179 @@
 
         function togglePlay() { isPlaying = !isPlaying; document.getElementById('playBtn').innerText = isPlaying ? "PAUSE" : "PLAY"; if(isPlaying) { lastRealTime = performance.now(); animationFrame = requestAnimationFrame(loop); } else cancelAnimationFrame(animationFrame); }
         function drawMap(carX, carY) {
-            const dpr = window.devicePixelRatio || 1; const w = trackCanvas.width / dpr, h = trackCanvas.height / dpr;
-            tCtx.save(); tCtx.scale(dpr, dpr); tCtx.clearRect(0, 0, w, h);
-            const padding = 40;
-            const xCoords = locs.map(l => l.x), yCoords = locs.map(l => l.y);
-            const minX = Math.min(...xCoords), maxX = Math.max(...xCoords), minY = Math.min(...yCoords), maxY = Math.max(...yCoords);
-            const trackW = maxX - minX, trackH = maxY - minY;
-            const scale = Math.min((w - padding*2) / (trackW || 1), (h - padding*2) / (trackH || 1));
-            const offX = (w - trackW * scale) / 2 - minX * scale, offY = (h - trackH * scale) / 2 - minY * scale;
-            const tx = (x) => x * scale + offX, ty = (y) => h - (y * scale + offY);
-            tCtx.strokeStyle = "#333"; tCtx.lineWidth = 3; tCtx.beginPath();
-            locs.filter((_, i) => i % 5 === 0).forEach((l, i) => { i === 0 ? tCtx.moveTo(tx(l.x), ty(l.y)) : tCtx.lineTo(tx(l.x), ty(l.y)); });
-            tCtx.stroke();
-            tCtx.beginPath(); tCtx.fillStyle = "#00d2be"; tCtx.shadowBlur = 15; tCtx.shadowColor = "#00d2be"; tCtx.arc(tx(carX), ty(carY), 7, 0, Math.PI * 2); tCtx.fill(); tCtx.restore();
-        }
+    const dpr = window.devicePixelRatio || 1;
+    const w = trackCanvas.width / dpr;
+    const h = trackCanvas.height / dpr;
+    const mode = document.getElementById('mapMode').value;
+    const centerX = w / 2;
+    const centerY = h / 2;
 
-        function drawChart(targetDate) {
-            const dpr = window.devicePixelRatio || 1; const w = chartCanvas.width / dpr, h = chartCanvas.height / dpr;
-            cCtx.save(); cCtx.scale(dpr, dpr); cCtx.clearRect(0, 0, w, h);
-            const points = 200; let currentIdx = 0; const targetMs = targetDate.getTime();
-            while(currentIdx < tele.length - 1 && new Date(tele[currentIdx].date).getTime() < targetMs) currentIdx++;
-            const slice = tele.slice(Math.max(0, currentIdx - points), currentIdx); const step = w / points;
-            cCtx.strokeStyle = "#ff9800"; cCtx.lineWidth = 1; cCtx.beginPath();
-            slice.forEach((p, i) => { const x = i * step; const y = h - (p.rpm / 15000 * h); i === 0 ? cCtx.moveTo(x, y) : cCtx.lineTo(x, y); }); cCtx.stroke();
-            cCtx.strokeStyle = "#00d2be"; cCtx.lineWidth = 2; cCtx.beginPath();
-            slice.forEach((p, i) => { const x = i * step; const y = h - (p.speed / 350 * h); i === 0 ? cCtx.moveTo(x, y) : cCtx.lineTo(x, y); }); cCtx.stroke(); cCtx.restore();
+    tCtx.save();
+    tCtx.scale(dpr, dpr);
+    tCtx.clearRect(0, 0, w, h);
+
+    if (mode === '2d') {
+        // ... (Sua lógica 2D pode ser mantida aqui)
+    } else {
+        // Busca de telemetria
+        const data = tele[lastChartIdx] || { n_gear: 0, v_speed: 0, rpm: 0 };
+        const speedVal = data.v_speed || data.speed || 0;
+        const gearVal = data.n_gear || 0;
+
+        // 1. Desenhar Pista
+        tCtx.save();
+        tCtx.translate(centerX, centerY);
+        tCtx.rotate(rotationAngle);
+        tCtx.lineWidth = Math.max(1, 50 * mapZoom);
+        tCtx.strokeStyle = "rgba(0, 210, 190, 0.4)";
+        tCtx.lineCap = "round";
+        tCtx.beginPath();
+        locs.forEach((l, i) => {
+            if (i % 2 === 0) {
+                const rx = (l.x - carX) * mapZoom;
+                const ry = (l.y - carY) * mapZoom;
+                i === 0 ? tCtx.moveTo(rx, ry) : tCtx.lineTo(rx, ry);
+            }
+        });
+        tCtx.stroke();
+        tCtx.restore();
+
+        // 2. Carrinho de F1 (Substituindo a bolinha)
+tCtx.save();
+tCtx.translate(centerX, centerY);
+// O carrinho deve apontar para onde o mapa está girando
+tCtx.rotate(0); 
+
+tCtx.fillStyle = "#e10600"; // Vermelho F1
+tCtx.beginPath();
+// Desenho de um triângulo pontiagudo (corpo do carro)
+tCtx.moveTo(0, -12); // Frente
+tCtx.lineTo(-6, 8);   // Traseira esquerda
+tCtx.lineTo(6, 8);    // Traseira direita
+tCtx.closePath();
+tCtx.fill();
+
+// Adiciona "asas" ou pneus para parecer um F1
+tCtx.fillStyle = "#ffffff";
+tCtx.fillRect(-8, 2, 16, 2); // Asa traseira
+tCtx.restore();
+
+        // 3. Volante "PRO" (Modo SIM)
+        if (mode === 'sim') {
+            tCtx.save();
+			tCtx.translate(centerX, h - 100); // Posição na base da tela
+			tCtx.rotate(steerAngle);
+			
+
+            // Desenho das Alavancas (Paddles) atrás do volante
+            tCtx.fillStyle = "#1a1a1a";
+            tCtx.fillRect(-65, -15, 20, 30); // Esquerda
+            tCtx.fillRect(45, -15, 20, 30);  // Direita
+
+            // Aro do Volante com Gradiente (Efeito Metal/Carbono)
+            const grad = tCtx.createRadialGradient(0, 0, 40, 0, 0, 60);
+            grad.addColorStop(0, "#222");
+            grad.addColorStop(1, "#000");
+			
+			// Desenho do Aro do Volante
+			tCtx.strokeStyle = "#333";
+			tCtx.lineWidth = 15;
+			tCtx.beginPath();
+			tCtx.arc(0, 0, 60, 0, Math.PI * 2);
+			tCtx.stroke();
+			
+            
+            tCtx.strokeStyle = grad;
+            tCtx.lineWidth = 18;
+            tCtx.beginPath();
+            tCtx.arc(0, 0, 55, 0, Math.PI * 2);
+            tCtx.stroke();
+
+            // Detalhes de Empunhadura (Couro/Borracha lateral)
+            tCtx.strokeStyle = "#111";
+            tCtx.lineWidth = 20;
+            tCtx.beginPath();
+            tCtx.arc(0, 0, 55, Math.PI * 0.8, Math.PI * 1.2); tCtx.stroke();
+            tCtx.beginPath();
+            tCtx.arc(0, 0, 55, -Math.PI * 0.2, Math.PI * 0.2); tCtx.stroke();
+
+            // DASHBOARD (Informações flutuantes)
+            tCtx.rotate(-steerAngle); // Texto sempre reto
+            
+            // Marcha (Destaque)
+            tCtx.fillStyle = "#fff200";
+            tCtx.font = "bold 38px 'Orbitron', Arial"; // Orbitron dá cara de F1 se tiver a fonte
+            tCtx.textAlign = "center";
+            tCtx.shadowBlur = 10; tCtx.shadowColor = "#fff20055";
+            tCtx.fillText(gearVal === 0 ? 'N' : gearVal, 0, 8);
+            tCtx.shadowBlur = 0;
+
+            // Velocidade
+            tCtx.fillStyle = "#ffffff";
+            tCtx.font = "bold 14px Arial";
+            tCtx.fillText(Math.floor(speedVal) + " KM/H", 0, 32);
+            
+            // Barra de LEDs de RPM (Simulando o Dash da Ferrari/Mercedes)
+            const rpmLimit = 12000;
+            const rpmRatio = Math.min(1, (data.rpm || 0) / rpmLimit);
+            for(let i=0; i<5; i++) {
+                tCtx.fillStyle = (rpmRatio > (i+1)/5) ? (i < 3 ? "#4CAF50" : "#e10600") : "#333";
+                tCtx.beginPath();
+                tCtx.arc(-20 + (i*10), -35, 3, 0, Math.PI * 2);
+                tCtx.fill();
+            }
+
+            tCtx.restore();
         }
+    }
+    tCtx.restore();
+}
+
+ 
+
+function drawChart(targetDate) {
+    const dpr = window.devicePixelRatio || 1;
+    const w = chartCanvas.width / dpr;
+    const h = chartCanvas.height / dpr;
+    
+    cCtx.save();
+    cCtx.scale(dpr, dpr);
+    cCtx.clearRect(0, 0, w, h);
+    
+    const points = 150; // Reduzir levemente a densidade ajuda na fluidez visual
+    const targetMs = targetDate.getTime();
+    
+    // Busca otimizada: começa de onde parou ou reseta se o tempo voltar
+    if (lastChartIdx >= tele.length || new Date(tele[lastChartIdx].date).getTime() > targetMs) {
+        lastChartIdx = 0;
+    }
+    while(lastChartIdx < tele.length - 1 && new Date(tele[lastChartIdx+1].date).getTime() < targetMs) {
+        lastChartIdx++;
+    }
+    
+    const slice = tele.slice(Math.max(0, lastChartIdx - points), lastChartIdx);
+    const step = w / points;
+
+    // Função auxiliar para desenhar caminhos suavemente
+    const drawLine = (dataProp, color, maxVal, width) => {
+        cCtx.strokeStyle = color;
+        cCtx.lineWidth = width;
+        cCtx.beginPath();
+        slice.forEach((p, i) => {
+            const x = i * step;
+            const y = h - (p[dataProp] / maxVal * h);
+            i === 0 ? cCtx.moveTo(x, y) : cCtx.lineTo(x, y);
+        });
+        cCtx.stroke();
+    };
+
+    // Desenha as linhas (RPM amarelo, Throttle verde, Brake vermelho)
+    drawLine('rpm', '#fff200', 15000, 1);
+    drawLine('throttle', '#4CAF50', 100, 2);
+    drawLine('brake', '#e10600', 100, 2);
+
+    cCtx.restore();
+}
 
         function updateTower(now) {
             const list = document.getElementById('driverList'); const nowMs = now.getTime();
