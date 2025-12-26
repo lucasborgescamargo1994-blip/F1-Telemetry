@@ -207,7 +207,7 @@
 let audioCtx = null, engineBuffer = null, sourceNode = null, gainNode = null, biquadFilter = null;
 
 // Se o arquivo estiver na mesma pasta que este HTML, use apenas o nome:
-const ENGINE_URL = "motor.mp3"; 
+const ENGINE_URL = "https://github.com/lucasborgescamargo1994-blip/F1-Telemetry/blob/main/motor.mp3"; 
 
 async function initEngineAudio() {
     if (audioCtx) return;
@@ -870,4 +870,5 @@ if(!audioCtx) {
     function showStatus(txt) { const el = document.getElementById('status'); if(!txt) { el.style.display = 'none'; return; } el.innerText = txt; el.style.display = 'block'; }
     </script>
 </body>
+
 </html>
