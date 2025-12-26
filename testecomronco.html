@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>F1 Hub Pro - Mobile Ultimate Final</title>
+    <style>
+        :root { --f1-red: #e10600; --f1-black: #15151e; --f1-dark: #1f1f27; --f1-cyan: #00d2be; --f1-yellow: #fff200; --f1-green: #4CAF50; }
+        body { background: var(--f1-black); color: white; font-family: 'Segoe UI', sans-serif; margin: 0; overflow: hidden; height: 100vh; }
+        
+        /* Header Otimizado */
+        .header { background: var(--f1-dark); padding: 10px; display: flex; gap: 10px; border-bottom: 3px solid var(--f1-red); align-items: center; height: 50px; box-sizing: border-box; z-index: 10; position: relative; }
+        input, select, button { background: #333; color: white; border: 1px solid #444; padding: 6px; border-radius: 4px; font-size: 12px; height: 30px; }
+        select { width: 180px; text-overflow: ellipsis; }
+        button { background: var(--f1-red); border: none; font-weight: bold; cursor: pointer; padding: 0 15px; }
+        button:hover { opacity: 0.9; }
+        button:disabled { background: #555; cursor: not-allowed; }
+
+        /* Layout Principal */
+        .main-layout { display: grid; height: calc(100vh - 130px); grid-template-columns: 260px 1fr 320px; gap: 10px; padding: 10px; display: none; box-sizing: border-box; }
+        .active { display: grid; }
+
+        /* Torre */
+        .timing-tower { background: rgba(0,0,0,0.3); border-radius: 10px; overflow-y: auto; border: 1px solid #333; display: flex; flex-direction: column; }
+        .tower-header { padding: 8px; font-weight: bold; font-size: 12px; background: #222; border-bottom: 1px solid #444; text-align: center; }
+        .tower-row { display: flex; align-items: center; height: 36px; border-bottom: 1px solid #222; cursor: pointer; padding-right: 10px; transition: background 0.2s; }
+        .tower-row:hover { background: #2a2a35; }
+        .tower-row.selected { background: #333; border-left: 4px solid var(--f1-cyan); }
+        .pos { width: 30px; text-align: center; font-weight: bold; font-family: monospace; font-size: 14px; }
+        .stripe { width: 4px; height: 18px; margin: 0 8px; border-radius: 2px; }
+        .name { font-weight: bold; font-size: 12px; text-transform: uppercase; pointer-events: none; flex-grow: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .gap { font-family: monospace; font-size: 11px; color: #ccc; text-align: right; width: 60px; }
+
+        /* Painel Central */
+        .center-panel { display: flex; flex-direction: column; gap: 10px; height: 100%; min-width: 0; }
+        .flag-bar { 
+            height: 30px; border-radius: 6px; display: flex; align-items: center; justify-content: center; 
+            font-weight: 900; letter-spacing: 2px; font-size: 14px; text-transform: uppercase;
+            background: #222; color: #888; border: 1px solid #333; transition: all 0.3s;
+        }
+        .flag-green { background: var(--f1-green); color: black; box-shadow: 0 0 15px rgba(76, 175, 80, 0.4); }
+        .flag-yellow { background: var(--f1-yellow); color: black; box-shadow: 0 0 15px rgba(255, 242, 0, 0.4); }
+        .flag-red { background: var(--f1-red); color: white; box-shadow: 0 0 15px rgba(225, 6, 0, 0.4); }
+        .flag-sc { background: #ff9800; color: black; }
+
+        .top-info { background: #1f1f27; padding: 10px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; height: 50px; box-sizing: border-box; }
+        #canvasContainer { flex: 2; background: #000; border-radius: 10px; border: 1px solid #333; position: relative; overflow: hidden; }
+        #chartContainer { flex: 1; background: #000; border-radius: 10px; border: 1px solid #333; position: relative; overflow: hidden; }
+        canvas { 
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            width: 100% !important; 
+            height: 100% !important;
+            image-rendering: -webkit-optimize-contrast; 
+            image-rendering: crisp-edges;
+            shape-rendering: geometricPrecision; 
+            touch-action: none; 
+        }
+
+        /* Painel Direito */
+        .right-panel { display: flex; flex-direction: column; gap: 10px; overflow: hidden; }
+        .card { background: var(--f1-dark); border-radius: 10px; padding: 15px; border-top: 3px solid var(--f1-red); position: relative; }
+        .speed-val { font-size: 48px; font-weight: 900; font-family: monospace; text-align: center; display: block; line-height: 1; }
+        .pedals { display: flex; gap: 8px; margin-top: 10px; height: 80px; }
+        .pedal-col { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; }
+        .pedal-bg { width: 100%; background: #111; height: 100%; border-radius: 3px; position: relative; overflow: hidden; border: 1px solid #444; }
+        .pedal-fill { position: absolute; bottom: 0; width: 100%; transition: height 0.05s; }
+        .pedal-label { font-size: 10px; margin-top: 4px; color: #888; font-weight: bold; }
+
+        .drs-badge { 
+            position: absolute; top: 15px; right: 15px; 
+            background: #222; color: #444; border: 2px solid #333;
+            font-size: 10px; font-weight: bold; padding: 4px 8px; border-radius: 4px; 
+            transition: all 0.2s; 
+        }
+        .drs-available { border-color: var(--f1-cyan); color: var(--f1-cyan); background: #222; box-shadow: 0 0 5px rgba(0, 210, 190, 0.3); }
+        .drs-active { background: var(--f1-cyan); color: #000; border-color: var(--f1-cyan); box-shadow: 0 0 15px rgba(0, 210, 190, 0.6); }
+
+        .radio-list { height: 180px; overflow-y: auto; background: #111; border-radius: 6px; border: 1px solid #333; margin-top: 5px; display: flex; flex-direction: column; gap: 2px; }
+        .radio-item { padding: 8px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #222; font-size: 11px; transition: background 0.2s; }
+        .radio-item:hover { background: #222; }
+        .radio-item.playing { background: #1f2820; border-left: 3px solid #4CAF50; }
+        .play-icon { cursor: pointer; width: 20px; height: 20px; background: #333; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 8px; }
+        .play-icon:hover { background: var(--f1-red); }
+
+        .footer { position: fixed; bottom: 0; width: 100%; background: var(--f1-dark); padding: 15px 25px; display: flex; align-items: center; gap: 20px; border-top: 1px solid #333; height: 80px; box-sizing: border-box; z-index: 100; }
+        #timeSlider { flex-grow: 1; accent-color: var(--f1-red); cursor: pointer; }
+        #status { position: fixed; top: 80px; right: 20px; padding: 8px 15px; border-radius: 5px; font-size: 11px; font-weight: bold; z-index: 1000; display: none; background: #ff9800; color: black; }
+
+        /* --- MOBILE OPTIMIZATION --- */
+        @media (max-width: 900px) {
+            body { overflow: auto; height: auto; }
+            .header { flex-wrap: wrap; height: auto; justify-content: center; padding-bottom: 15px; gap: 5px; }
+            .header select, .header input { width: 48%; }
+            .header button { width: 100%; padding: 8px; }
+            
+            .main-layout { 
+                display: flex; 
+                flex-direction: column; 
+                height: auto; 
+                padding-bottom: 100px; 
+                gap: 15px;
+            }
+            .active { display: flex; }
+
+            .center-panel { order: 1; height: 500px; flex-shrink: 0; }
+            .right-panel { order: 2; flex-shrink: 0; }
+            .timing-tower { order: 3; height: 300px; flex-shrink: 0; }
+
+            #canvasContainer { flex: 3; min-height: 250px; }
+            #chartContainer { flex: 1; min-height: 120px; }
+            
+            .tower-row { height: 45px; }
+            .play-icon { width: 30px; height: 30px; font-size: 12px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="status"></div>
+    <audio id="radioPlayer" style="display:none;"></audio>
+
+    <div class="header">
+        <input type="number" id="year" value="2024" style="width: 60px; text-align:center;" placeholder="Ano">
+        <button onclick="fetchCalendar()" id="loadBtn">CARREGAR ANO</button>
+        
+        <select id="circuitSel" style="display:none;" onchange="filterSessions()">
+            <option value="">Selecione o GP...</option>
+        </select>
+        
+        <select id="sessionSel" style="display:none;" onchange="initDashboard()">
+            <option value="">Selecione a Sessão...</option>
+        </select>
+        
+        <select id="mapMode" onchange="render()">
+            <option value="2d">MAPA 2D (ESTÁTICO)</option>
+            <option value="3d">MAPA 3D (CHASE CAM)</option>
+            <option value="sim">SIM TRAINING (VOLANTE)</option>
+        </select>
+        
+        <div style="display:flex; gap:5px; width: 100%; justify-content: center;">
+            <button onclick="changeZoom(1.2)" style="flex:1"> + </button>
+            <button onclick="changeZoom(0.8)" style="flex:1"> - </button>
+        </div>
+    </div>
+
+    <div id="mainUI" class="main-layout">
+        <div class="timing-tower">
+            <div class="tower-header">POSIÇÕES & INTERVALOS</div>
+            <div id="driverList" style="flex-grow:1; overflow-y:auto;"></div>
+        </div>
+        
+        <div class="center-panel">
+            <div id="flagStatus" class="flag-bar">TRACK CLEAR</div>
+            <div class="top-info">
+                <div><small style="opacity:0.6">LAP</small><br><b id="lapVal" style="font-size:16px">--</b></div>
+                <div style="text-align:right"><small style="opacity:0.6">SESSION TIME</small><br><b id="timeVal" style="font-size:16px">00:00:00</b></div>
+            </div>
+            <div id="canvasContainer"><canvas id="trackCanvas"></canvas></div>
+       
+            <div id="chartContainer">
+                <canvas id="telemetryChart"></canvas>
+                <div style="position: absolute; top: 5px; right: 10px; display: flex; gap: 10px; font-size: 10px; background: rgba(0,0,0,0.5); padding: 5px; border-radius: 4px;">
+                    <span style="color: #4CAF50;">● THR</span>
+                    <span style="color: #e10600;">● BRK</span>
+                    <span style="color: #fff200;">● RPM</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="right-panel">
+            <div class="card">
+                <div id="drsBadge" class="drs-badge">DRS</div>
+                <div id="driverTitle" style="color:var(--f1-cyan); font-weight:bold; text-align:center; margin-bottom:8px; font-size: 15px;">---</div>
+                <span class="speed-val" id="speedVal">0</span>
+                <div style="text-align:center; color:#666; font-size:10px; margin-bottom:10px;">KM/H</div>
+                <div class="pedals">
+                    <div class="pedal-col"><div class="pedal-bg"><div id="thrFill" class="pedal-fill" style="background:#4CAF50;"></div></div><div class="pedal-label">THR</div></div>
+                    <div class="pedal-col"><div class="pedal-bg"><div id="brkFill" class="pedal-fill" style="background:#e10600;"></div></div><div class="pedal-label">BRK</div></div>
+                </div>
+            </div>
+            <div class="card" style="display:flex; justify-content:space-around; text-align:center; font-family:monospace; padding:10px;">
+                <div><small style="opacity:0.6">GEAR</small><br><b id="gearVal" style="font-size:24px; color:var(--f1-cyan)">-</b></div>
+                <div><small style="opacity:0.6">RPM</small><br><b id="rpmVal" style="font-size:24px">0</b></div>
+            </div>
+            <div class="card" style="padding:10px; display:flex; flex-direction:column; flex-grow:1; min-height:0;">
+                <div style="font-size:12px; font-weight:bold; color:#888; margin-bottom:5px; display:flex; justify-content:space-between;">
+                    <span>TEAM RADIO</span><span id="radioCount" style="color:var(--f1-red)">0</span>
+                </div>
+                <div id="radioList" class="radio-list">
+                    <div style="padding:20px; text-align:center; color:#444; font-size:10px;">Carregue uma sessão...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="footer" class="footer" style="display:none;">
+        <button onclick="togglePlay()" id="playBtn" style="width:80px;">PLAY</button>
+        <input type="range" id="timeSlider" value="0" step="10" oninput="manualSeek()">
+        <span id="clock" style="font-family:monospace; color:#888; font-size:12px;">00:00:00</span>
+    </div>
+
+    <script>
+	
+	// --- SISTEMA DE ÁUDIO REALISTA (ARQUIVO LOCAL OU HOSPEDADO) ---
+let audioCtx = null, engineBuffer = null, sourceNode = null, gainNode = null, biquadFilter = null;
+
+// Se o arquivo estiver na mesma pasta que este HTML, use apenas o nome:
+const ENGINE_URL = "motor.mp3"; 
+
+async function initEngineAudio() {
+    if (audioCtx) return;
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    
+    try {
+        const response = await fetch(ENGINE_URL);
+        const arrayBuffer = await response.arrayBuffer();
+        engineBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+        
+        // Criar controle de volume
+        gainNode = audioCtx.createGain();
+        gainNode.gain.value = 0;
+
+        // Criar um filtro de graves para dar mais "corpo" ao som local
+        biquadFilter = audioCtx.createBiquadFilter();
+        biquadFilter.type = "lowshelf";
+        biquadFilter.frequency.value = 250;
+        biquadFilter.gain.value = 5; // Aumenta o grave em 5db
+
+        gainNode.connect(biquadFilter);
+        biquadFilter.connect(audioCtx.destination);
+        
+        console.log("Áudio local carregado com sucesso!");
+    } catch (e) {
+        console.error("Erro ao carregar arquivo local: Verifique se o nome é motor.mp3 e se está na mesma pasta.", e);
+    }
+}
+
+function startEngine() {
+    if (!engineBuffer || sourceNode) return;
+    sourceNode = audioCtx.createBufferSource();
+    sourceNode.buffer = engineBuffer;
+    sourceNode.loop = true;
+    sourceNode.connect(gainNode);
+    sourceNode.start(0);
+}
+
+function updateEngineSound(rpm, throttle) {
+    if (!audioCtx || !isPlaying || !sourceNode) return;
+
+    // Lógica de Pitch para F1 (Ajuste o 4500 se o som original for muito agudo ou grave)
+    // Se o motor real estiver em marcha lenta no áudio, use um divisor menor.
+    const pitch = Math.max(0.3, rpm / 5000); 
+    sourceNode.playbackRate.setTargetAtTime(pitch, audioCtx.currentTime, 0.05);
+
+    // Volume dinâmico (mais alto quando acelera)
+    const vol = 0.1 + (throttle / 100) * 0.5;
+    gainNode.gain.setTargetAtTime(vol, audioCtx.currentTime, 0.1);
+}
+    // VARIÁVEIS DE CONTROLE
+    let keys = {}; 
+    let steerAngle = 0; 
+    let touchSteerDir = 0; 
+    const maxSteer = Math.PI / 2;
+    const steerSpeed = 0.03;
+    const returnSpeed = 0.82;
+    const simTurnRate = 0.04; 
+
+    window.addEventListener('keydown', (e) => { keys[e.code] = true; });
+    window.addEventListener('keyup', (e) => { keys[e.code] = false; });
+
+    // --- LÓGICA DE TOQUE ---
+    const mapCanvasRef = document.getElementById('trackCanvas');
+    mapCanvasRef.addEventListener('touchstart', handleTouchStart, {passive: false});
+    mapCanvasRef.addEventListener('touchmove', handleTouchMove, {passive: false});
+    mapCanvasRef.addEventListener('touchend', handleTouchEnd);
+
+    function handleTouchStart(e) {
+        const mode = document.getElementById('mapMode').value;
+        if (mode === 'sim') {
+            e.preventDefault();
+            processTouchSteer(e.touches[0].clientX);
+        } else if (mode === '3d') {
+            isDragging = true;
+            previousMouseX = e.touches[0].clientX;
+        }
+    }
+
+    function handleTouchMove(e) {
+        const mode = document.getElementById('mapMode').value;
+        if (mode === 'sim') {
+            e.preventDefault();
+            processTouchSteer(e.touches[0].clientX);
+        } else if (mode === '3d' && isDragging) {
+            e.preventDefault();
+            const deltaX = e.touches[0].clientX - previousMouseX;
+            rotationAngle += deltaX * 0.01;
+            previousMouseX = e.touches[0].clientX;
+            render();
+        }
+    }
+
+    function handleTouchEnd(e) {
+        isDragging = false;
+        touchSteerDir = 0;
+    }
+
+    function processTouchSteer(clientX) {
+        const rect = mapCanvasRef.getBoundingClientRect();
+        const relativeX = clientX - rect.left;
+        const centerX = rect.width / 2;
+        if (relativeX < centerX) touchSteerDir = 1;
+        else touchSteerDir = -1;
+    }
+
+    function updateInput() {
+        const mode = document.getElementById('mapMode').value;
+        if (mode === 'sim') {
+            if (keys['ArrowLeft'] || touchSteerDir === 1) {
+                steerAngle = Math.max(-maxSteer, steerAngle - steerSpeed);
+            } else if (keys['ArrowRight'] || touchSteerDir === -1) {
+                steerAngle = Math.min(maxSteer, steerAngle + steerSpeed);
+            } else if (!isDragging) {
+                if (Math.abs(steerAngle) > 0.01) steerAngle *= returnSpeed;
+                else steerAngle = 0;
+            }
+            rotationAngle -= steerAngle * simTurnRate;
+            render(); 
+        } else if (mode === '3d') {
+            if (keys['ArrowLeft']) { rotationAngle -= steerSpeed; render(); }
+            if (keys['ArrowRight']) { rotationAngle += steerSpeed; render(); }
+        }
+        requestAnimationFrame(updateInput);
+    }
+    updateInput();
+
+    let lastChartIdx = 0;
+    let mapZoom = 0.4;
+    let isDragging = false;
+    let previousMouseX = 0;
+    let rotationAngle = 0;
+    let allSessionsCache = [];
+    let tele = [], locs = [], laps = [], positions = [], intervals = [], raceControl = [], radios = [], drivers = {};
+    let isPlaying = false, animationFrame = null;
+    let sessionStart, sessionEnd, currentNum = null;
+    let virtualTime = 0, lastRealTime = 0;
+    const bufferDelay = 500;
+    let drsEnabledGlobal = false;
+
+    const trackCanvas = document.getElementById('trackCanvas'), tCtx = trackCanvas.getContext('2d');
+    
+    window.changeZoom = function(factor) {
+        mapZoom *= factor;
+        render();
+    }
+
+    trackCanvas.addEventListener('mousedown', (e) => {
+        if(document.getElementById('mapMode').value === '3d') {
+            isDragging = true;
+            previousMouseX = e.clientX;
+        }
+    });
+    window.addEventListener('mouseup', () => isDragging = false);
+    window.addEventListener('mousemove', (e) => {
+        if (isDragging && document.getElementById('mapMode').value === '3d') {
+            const deltaX = e.clientX - previousMouseX;
+            rotationAngle += deltaX * 0.01; 
+            previousMouseX = e.clientX;
+            render(); 
+        }
+    });
+    trackCanvas.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        if (e.deltaY < 0) mapZoom *= 1.1; else mapZoom *= 0.9; render();
+    }, { passive: false });
+
+    const chartCanvas = document.getElementById('telemetryChart'), cCtx = chartCanvas.getContext('2d');
+    const radioPlayer = document.getElementById('radioPlayer');
+
+    const resizeObserver = new ResizeObserver(entries => {
+        for (let entry of entries) {
+            const canvas = entry.target.querySelector('canvas');
+            if (canvas) {
+                const dpr = window.devicePixelRatio || 1;
+                canvas.width = entry.contentRect.width * dpr;
+                canvas.height = entry.contentRect.height * dpr;
+                if (!isPlaying) render(); 
+            }
+        }
+    });
+    resizeObserver.observe(document.getElementById('canvasContainer'));
+    resizeObserver.observe(document.getElementById('chartContainer'));
+
+    async function api(path) {
+        try { const r = await fetch(`https://api.openf1.org/v1/${path}`); return r.ok ? await r.json() : []; } catch (e) { return []; }
+    }
+
+    async function fetchCalendar() {
+        const year = document.getElementById('year').value;
+        const btn = document.getElementById('loadBtn');
+        const cSel = document.getElementById('circuitSel');
+        const sSel = document.getElementById('sessionSel');
+
+        btn.disabled = true; btn.innerText = "BUSCANDO...";
+        showStatus("DOWNLOADING CALENDAR...");
+
+        allSessionsCache = await api(`sessions?year=${year}`);
+        if (allSessionsCache.length === 0) {
+            showStatus("NO DATA FOR THIS YEAR");
+            btn.disabled = false; btn.innerText = "CARREGAR ANO";
+            return;
+        }
+
+        const meetings = {};
+        allSessionsCache.forEach(s => {
+            if (!meetings[s.meeting_key]) {
+                meetings[s.meeting_key] = {
+                    name: s.meeting_name || s.location,
+                    country: s.country_name,
+                    key: s.meeting_key,
+                    start: new Date(s.date_start)
+                };
+            } else {
+                const d = new Date(s.date_start);
+                if (d < meetings[s.meeting_key].start) meetings[s.meeting_key].start = d;
+            }
+        });
+
+        const sortedMeetings = Object.values(meetings).sort((a,b) => a.start - b.start);
+        cSel.innerHTML = '<option value="">Selecione o GP...</option>' + 
+            sortedMeetings.map(m => `<option value="${m.key}">${m.country} - ${m.name}</option>`).join('');
+        
+        cSel.style.display = 'block'; sSel.style.display = 'none'; 
+        btn.disabled = false; btn.innerText = "CARREGAR ANO"; showStatus("");
+    }
+
+    function filterSessions() {
+        const mKey = document.getElementById('circuitSel').value;
+        const sSel = document.getElementById('sessionSel');
+        if (!mKey) { sSel.style.display = 'none'; return; }
+        const sessionList = allSessionsCache.filter(s => s.meeting_key == mKey).sort((a,b) => new Date(a.date_start) - new Date(b.date_start));
+        sSel.innerHTML = '<option value="">Selecione a Sessão...</option>' + 
+            sessionList.map(s => `<option value="${s.session_key}" data-start="${s.date_start}" data-end="${s.date_end}">${s.session_name}</option>`).join('');
+        sSel.style.display = 'block';
+    }
+
+    async function initDashboard() {
+        const opt = document.getElementById('sessionSel').selectedOptions[0];
+        if (!opt.value) return;
+
+        sessionStart = new Date(opt.dataset.start);
+        sessionEnd = new Date(opt.dataset.end || new Date(sessionStart.getTime() + 7200000));
+        
+        tele = []; locs = []; laps = []; positions = []; drivers = {}; radios = [];
+        document.getElementById('driverList').innerHTML = '';
+        
+        showStatus("SYNCING SESSION DATA...");
+        
+        const [dData, pData, lData, iData, rcData] = await Promise.all([
+            api(`drivers?session_key=${opt.value}`),
+            api(`position?session_key=${opt.value}`),
+            api(`laps?session_key=${opt.value}`),
+            api(`intervals?session_key=${opt.value}`),
+            api(`race_control?session_key=${opt.value}`)
+        ]);
+        
+        dData.forEach(d => drivers[d.driver_number] = d);
+        positions = pData; laps = lData; intervals = iData; raceControl = rcData;
+
+        document.getElementById('mainUI').classList.add('active');
+        document.getElementById('footer').style.display = 'flex';
+        if(dData.length > 0) switchDriver(dData[0].driver_number);
+    }
+
+    async function switchDriver(num) {
+        const currentAbsTime = (tele.length > 0) ? new Date(tele[0].date).getTime() + virtualTime : null;
+        currentNum = num; tele = []; locs = []; radios = []; virtualTime = 0;
+        showStatus(`LOADING ${drivers[num].name_acronym} & RADIO...`);
+        
+        api(`team_radio?session_key=${document.getElementById('sessionSel').value}&driver_number=${num}`).then(r => { radios = r; updateRadioList(); });
+
+        let pointer = new Date(sessionStart);
+        while(pointer < sessionEnd) {
+            const chunkEnd = new Date(pointer.getTime() + 1800000); 
+            const query = `&date>=${pointer.toISOString()}&date<${chunkEnd.toISOString()}`;
+            const [tChunk, lChunk] = await Promise.all([
+                api(`car_data?session_key=${document.getElementById('sessionSel').value}&driver_number=${num}${query}`),
+                api(`location?session_key=${document.getElementById('sessionSel').value}&driver_number=${num}${query}`)
+            ]);
+            if(tChunk.length === 0 && lChunk.length === 0 && tele.length > 0) break;
+            tele = [...tele, ...tChunk]; locs = [...locs, ...lChunk];
+            if(currentAbsTime && tele.length > 0) virtualTime = Math.max(0, currentAbsTime - new Date(tele[0].date).getTime());
+            document.getElementById('timeSlider').max = tele.length > 0 ? (new Date(tele[tele.length-1].date) - new Date(tele[0].date)) : 0;
+            pointer = chunkEnd;
+            render();
+        }
+        showStatus(""); 
+        document.getElementById('driverTitle').innerText = drivers[num].full_name.toUpperCase();
+        document.getElementById('driverTitle').style.color = '#' + drivers[num].team_colour;
+    }
+
+    function lerp(a, b, t) { return a + (b - a) * t; }
+
+    function getInterpolatedData(timeMs) {
+        const target = new Date(tele[0].date).getTime() + timeMs - bufferDelay;
+        let i = 0; while(i < tele.length - 2 && new Date(tele[i+1].date).getTime() < target) i++;
+        const d1 = tele[i], d2 = tele[i+1];
+        const factor = (target - new Date(d1.date).getTime()) / (new Date(d2.date).getTime() - new Date(d1.date).getTime() || 1);
+        let j = 0; while(j < locs.length - 2 && new Date(locs[j+1].date).getTime() < target) j++;
+        const l1 = locs[j], l2 = locs[j+1];
+        const lFactor = (target - new Date(l1.date).getTime()) / (new Date(l2.date).getTime() - new Date(l1.date).getTime() || 1);
+        
+        return {
+            speed: lerp(d1.speed, d2.speed, factor), rpm: lerp(d1.rpm, d2.rpm, factor),
+            throttle: lerp(d1.throttle, d2.throttle, factor), brake: lerp(d1.brake, d2.brake, factor),
+            gear: d1.n_gear, drs: d1.drs, x: lerp(l1.x, l2.x, lFactor), y: lerp(l1.y, l2.y, lFactor), date: new Date(target)
+        };
+    }
+
+    function loop(now) {
+        if(!isPlaying) return;
+        const dt = lastRealTime ? now - lastRealTime : 0; lastRealTime = now; virtualTime += dt;
+        render(); animationFrame = requestAnimationFrame(loop);
+    }
+
+    function render() {
+        if (tele.length < 2 || locs.length < 2) return;
+        const data = getInterpolatedData(virtualTime);
+        
+        document.getElementById('timeVal').innerText = new Date(data.date - sessionStart).toISOString().substr(11, 8);
+        document.getElementById('speedVal').innerText = Math.round(data.speed);
+        document.getElementById('gearVal').innerText = data.gear || 'N';
+        document.getElementById('rpmVal').innerText = Math.round(data.rpm);
+        document.getElementById('thrFill').style.height = data.throttle + "%";
+        document.getElementById('brkFill').style.height = data.brake + "%";
+        document.getElementById('timeSlider').value = virtualTime;
+        document.getElementById('clock').innerText = data.date.toLocaleTimeString();
+
+        processRaceControl(data.date);
+        const drsEl = document.getElementById('drsBadge');
+        drsEl.className = 'drs-badge'; 
+        if (data.drs >= 10) drsEl.classList.add('drs-active');
+        else if (drsEnabledGlobal) drsEl.classList.add('drs-available');
+
+        highlightCurrentRadio(data.date);
+        
+        const cLap = laps.filter(l => l.driver_number == currentNum).reverse().find(l => new Date(l.date_start) <= data.date);
+        document.getElementById('lapVal').innerText = cLap ? cLap.lap_number : "--";
+
+        drawMap(data.x, data.y); drawChart(data.date);
+        if(Math.round(virtualTime/100) % 5 === 0) updateTower(data.date);
+    }
+
+    function processRaceControl(nowDate) {
+        const validMsgs = raceControl.filter(m => new Date(m.date) <= nowDate);
+        if(validMsgs.length === 0) return;
+        const lastMsg = validMsgs[validMsgs.length - 1];
+        const statusEl = document.getElementById('flagStatus');
+        
+        let msg = lastMsg.message || "", category = lastMsg.category || "", flagClass = "", displayTxt = msg;
+        if (msg.includes("GREEN") || (category == "Flag" && lastMsg.flag == "GREEN")) { flagClass = "flag-green"; displayTxt = "GREEN FLAG"; }
+        else if (msg.includes("YELLOW") || (category == "Flag" && lastMsg.flag == "YELLOW")) { flagClass = "flag-yellow"; displayTxt = "YELLOW FLAG"; }
+        else if (msg.includes("SAFETY CAR") || msg.includes("SC DEPLOYED")) { flagClass = "flag-sc"; displayTxt = "SAFETY CAR"; }
+        else if (msg.includes("VIRTUAL") || msg.includes("VSC")) { flagClass = "flag-sc"; displayTxt = "VIRTUAL SAFETY CAR"; }
+        else if (msg.includes("RED") || (category == "Flag" && lastMsg.flag == "RED")) { flagClass = "flag-red"; displayTxt = "RED FLAG"; }
+        else if (msg.includes("TRACK CLEAR")) { flagClass = "flag-green"; displayTxt = "TRACK CLEAR"; }
+        
+        statusEl.className = "flag-bar " + flagClass; statusEl.innerText = displayTxt;
+
+        let tempDrs = false;
+        for (let i = validMsgs.length - 1; i >= 0; i--) {
+            const m = validMsgs[i].message;
+            if (m.includes("DRS ENABLED")) { tempDrs = true; break; }
+            if (m.includes("DRS DISABLED")) { tempDrs = false; break; }
+        }
+        drsEnabledGlobal = tempDrs;
+    }
+
+    function updateRadioList() {
+        const list = document.getElementById('radioList');
+        document.getElementById('radioCount').innerText = radios.length;
+        list.innerHTML = radios.map((r, i) => `
+            <div class="radio-item" id="radio-${i}" data-time="${new Date(r.date).getTime()}">
+                <div class="play-icon" onclick="playRadio('${r.recording_url}')">▶</div>
+                <div style="flex-grow:1"><div style="color:#ccc">${new Date(r.date).toLocaleTimeString()}</div></div>
+            </div>`).join('');
+    }
+
+    function highlightCurrentRadio(nowDate) {
+        const nowMs = nowDate.getTime();
+        radios.forEach((r, i) => {
+            const rTime = new Date(r.date).getTime();
+            const el = document.getElementById(`radio-${i}`);
+            if (el) {
+                if (nowMs >= rTime && nowMs < rTime + 5000) {
+                    el.classList.add('playing');
+                    if(!el.dataset.scrolled) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.dataset.scrolled = "true"; }
+                } else { el.classList.remove('playing'); delete el.dataset.scrolled; }
+            }
+        });
+    }
+
+    function playRadio(url) { radioPlayer.src = url; radioPlayer.play(); }
+
+    function togglePlay() {
+if(!audioCtx) {
+        initEngineAudio().then(() => {
+            startEngine();
+            isPlaying = true;
+            lastRealTime = performance.now();
+            requestAnimationFrame(loop);
+            document.getElementById('playBtn').innerText = "PAUSE";
+        });
+    } else {
+        if(audioCtx.state === 'suspended') audioCtx.resume();
+        isPlaying = !isPlaying;
+        document.getElementById('playBtn').innerText = isPlaying ? "PAUSE" : "PLAY";
+        if(isPlaying) { lastRealTime = performance.now(); requestAnimationFrame(loop); }
+    }
+
+	isPlaying = !isPlaying; document.getElementById('playBtn').innerText = isPlaying ? "PAUSE" : "PLAY"; if(isPlaying) { lastRealTime = performance.now(); animationFrame = requestAnimationFrame(loop); } else cancelAnimationFrame(animationFrame); }
+    
+    function drawMap(carX, carY) {
+        const dpr = window.devicePixelRatio || 1;
+        const w = trackCanvas.width / dpr;
+        const h = trackCanvas.height / dpr;
+        const mode = document.getElementById('mapMode').value;
+        const centerX = w / 2;
+        const centerY = h / 2;
+
+        tCtx.save();
+        tCtx.scale(dpr, dpr);
+        tCtx.clearRect(0, 0, w, h);
+
+        if (mode === '2d') {
+            const scale2d = 0.5 * mapZoom;
+            tCtx.save();
+            tCtx.translate(centerX, centerY);
+            tCtx.scale(scale2d, scale2d);
+            
+            // Pista
+            tCtx.lineWidth = 2 / scale2d;
+            tCtx.strokeStyle = "rgba(0, 210, 190, 0.4)";
+            tCtx.beginPath();
+            locs.forEach((l, i) => {
+                if (i % 2 === 0) {
+                    const rx = (l.x - carX); 
+                    const ry = (l.y - carY);
+                    i === 0 ? tCtx.moveTo(rx, ry) : tCtx.lineTo(rx, ry);
+                }
+            });
+            tCtx.stroke();
+
+            // Setas Direcionais 2D
+            tCtx.fillStyle = "rgba(255, 255, 255, 0.7)";
+            for (let i = 0; i < locs.length - 10; i += 40) {
+                const l1 = locs[i];
+                const l2 = locs[i+5];
+                if (!l1 || !l2) continue;
+                
+                const x1 = (l1.x - carX);
+                const y1 = (l1.y - carY);
+                const x2 = (l2.x - carX);
+                const y2 = (l2.y - carY);
+                const angle = Math.atan2(y2 - y1, x2 - x1);
+
+                tCtx.save();
+                tCtx.translate(x1, y1);
+                tCtx.rotate(angle);
+                tCtx.beginPath();
+                tCtx.moveTo(-100, -100); // Scale is weird here because of inverse scaling
+                // Draw manual scaled triangle
+                const size = 6 / scale2d;
+                tCtx.moveTo(-size, -size);
+                tCtx.lineTo(size, 0);
+                tCtx.lineTo(-size, size);
+                tCtx.fill();
+                tCtx.restore();
+            }
+
+            // Carro
+            tCtx.fillStyle = "#e10600";
+            tCtx.beginPath(); tCtx.arc(0,0, 10 / scale2d, 0, Math.PI*2); tCtx.fill();
+            tCtx.restore();
+
+        } else {
+            const data = tele[lastChartIdx] || { n_gear: 0, v_speed: 0, rpm: 0 };
+            const speedVal = data.v_speed || data.speed || 0;
+            const gearVal = data.n_gear || 0;
+
+            tCtx.save();
+            tCtx.translate(centerX, centerY);
+            tCtx.rotate(rotationAngle); // O mapa gira
+            
+            // Desenho da Pista 3D/Sim
+            tCtx.lineWidth = Math.max(1, 50 * mapZoom);
+            tCtx.strokeStyle = "rgba(0, 210, 190, 0.4)";
+            tCtx.lineCap = "round";
+            tCtx.beginPath();
+            locs.forEach((l, i) => {
+                if (i % 2 === 0) {
+                    const rx = (l.x - carX) * mapZoom;
+                    const ry = (l.y - carY) * mapZoom;
+                    i === 0 ? tCtx.moveTo(rx, ry) : tCtx.lineTo(rx, ry);
+                }
+            });
+            tCtx.stroke();
+
+            // Setas Direcionais 3D
+            tCtx.fillStyle = "rgba(255, 255, 255, 0.7)";
+            for (let i = 0; i < locs.length - 10; i += 40) {
+                const l1 = locs[i];
+                const l2 = locs[i+5]; // Olha 5 pontos à frente
+                if (!l1 || !l2) continue;
+
+                // Coordenadas relativas ao carro e com zoom aplicado
+                const x1 = (l1.x - carX) * mapZoom;
+                const y1 = (l1.y - carY) * mapZoom;
+                const x2 = (l2.x - carX) * mapZoom;
+                const y2 = (l2.y - carY) * mapZoom;
+                
+                const angle = Math.atan2(y2 - y1, x2 - x1);
+                const arrowSize = 4 * mapZoom; 
+
+                tCtx.save();
+                tCtx.translate(x1, y1);
+                tCtx.rotate(angle);
+                tCtx.beginPath();
+                tCtx.moveTo(-arrowSize, -arrowSize);
+                tCtx.lineTo(arrowSize, 0);
+                tCtx.lineTo(-arrowSize, arrowSize);
+                tCtx.fill();
+                tCtx.restore();
+            }
+
+            tCtx.restore(); // Restaura rotação do mapa
+
+            // Carrinho (Estático no centro)
+            tCtx.save();
+            tCtx.translate(centerX, centerY);
+            
+            tCtx.fillStyle = "#e10600"; 
+            tCtx.beginPath();
+            tCtx.moveTo(0, -12); 
+            tCtx.lineTo(-6, 8);   
+            tCtx.lineTo(6, 8);    
+            tCtx.closePath();
+            tCtx.fill();
+            tCtx.fillStyle = "#ffffff";
+            tCtx.fillRect(-8, 2, 16, 2); 
+            tCtx.restore();
+
+            if (mode === 'sim') {
+                tCtx.save();
+                tCtx.translate(centerX, h - 100); 
+                tCtx.rotate(steerAngle);
+
+                tCtx.fillStyle = "#1a1a1a";
+                tCtx.fillRect(-65, -15, 20, 30); 
+                tCtx.fillRect(45, -15, 20, 30); 
+
+                const grad = tCtx.createRadialGradient(0, 0, 40, 0, 0, 60);
+                grad.addColorStop(0, "#222");
+                grad.addColorStop(1, "#000");
+                
+                tCtx.strokeStyle = "#333";
+                tCtx.lineWidth = 15;
+                tCtx.beginPath();
+                tCtx.arc(0, 0, 60, 0, Math.PI * 2);
+                tCtx.stroke();
+                
+                tCtx.strokeStyle = grad;
+                tCtx.lineWidth = 18;
+                tCtx.beginPath();
+                tCtx.arc(0, 0, 55, 0, Math.PI * 2);
+                tCtx.stroke();
+
+                tCtx.strokeStyle = "#111";
+                tCtx.lineWidth = 20;
+                tCtx.beginPath();
+                tCtx.arc(0, 0, 55, Math.PI * 0.8, Math.PI * 1.2); tCtx.stroke();
+                tCtx.beginPath();
+                tCtx.arc(0, 0, 55, -Math.PI * 0.2, Math.PI * 0.2); tCtx.stroke();
+
+                tCtx.rotate(-steerAngle); 
+                
+                tCtx.fillStyle = "#fff200";
+                tCtx.font = "bold 38px Arial"; 
+                tCtx.textAlign = "center";
+                tCtx.shadowBlur = 10; tCtx.shadowColor = "#fff20055";
+                tCtx.fillText(gearVal === 0 ? 'N' : gearVal, 0, 8);
+                tCtx.shadowBlur = 0;
+
+                tCtx.fillStyle = "#ffffff";
+                tCtx.font = "bold 14px Arial";
+                tCtx.fillText(Math.floor(speedVal) + " KM/H", 0, 32);
+                
+                const rpmLimit = 12000;
+                const rpmRatio = Math.min(1, (data.rpm || 0) / rpmLimit);
+                for(let i=0; i<5; i++) {
+                    tCtx.fillStyle = (rpmRatio > (i+1)/5) ? (i < 3 ? "#4CAF50" : "#e10600") : "#333";
+                    tCtx.beginPath();
+                    tCtx.arc(-20 + (i*10), -35, 3, 0, Math.PI * 2);
+                    tCtx.fill();
+                }
+
+                tCtx.restore();
+            }
+        }
+        tCtx.restore();
+    }
+
+    function drawChart(targetDate) {
+        const dpr = window.devicePixelRatio || 1;
+        const w = chartCanvas.width / dpr;
+        const h = chartCanvas.height / dpr;
+        
+        cCtx.save();
+        cCtx.scale(dpr, dpr);
+        cCtx.clearRect(0, 0, w, h);
+        
+        const points = 150; 
+        const targetMs = targetDate.getTime();
+        
+        if (lastChartIdx >= tele.length || new Date(tele[lastChartIdx].date).getTime() > targetMs) {
+            lastChartIdx = 0;
+        }
+        while(lastChartIdx < tele.length - 1 && new Date(tele[lastChartIdx+1].date).getTime() < targetMs) {
+            lastChartIdx++;
+        }
+        
+        const slice = tele.slice(Math.max(0, lastChartIdx - points), lastChartIdx);
+        const step = w / points;
+
+        const drawLine = (dataProp, color, maxVal, width) => {
+            cCtx.strokeStyle = color;
+            cCtx.lineWidth = width;
+            cCtx.beginPath();
+            slice.forEach((p, i) => {
+                const x = i * step;
+                const y = h - (p[dataProp] / maxVal * h);
+                i === 0 ? cCtx.moveTo(x, y) : cCtx.lineTo(x, y);
+            });
+            cCtx.stroke();
+        };
+
+        drawLine('rpm', '#fff200', 15000, 1);
+        drawLine('throttle', '#4CAF50', 100, 2);
+        drawLine('brake', '#e10600', 100, 2);
+
+        cCtx.restore();
+    }
+
+    function updateTower(now) {
+        const list = document.getElementById('driverList'); const nowMs = now.getTime();
+        const posSnap = {}; intervals.forEach(i => { if(new Date(i.date).getTime() <= nowMs) posSnap[i.driver_number] = i; });
+        const pData = {}; positions.forEach(p => { if(new Date(p.date).getTime() <= nowMs) pData[p.driver_number] = p.position; });
+        const sorted = Object.keys(drivers).sort((a,b) => (pData[a]||99) - (pData[b]||99));
+        list.innerHTML = sorted.map(n => {
+            const gapData = posSnap[n]; let gapText = "";
+            if (pData[n] == 1) gapText = "LDR"; else if (gapData && gapData.gap_to_leader) gapText = `+${parseFloat(gapData.gap_to_leader).toFixed(1)}`;
+            return `<div class="tower-row ${n == currentNum ? 'selected' : ''}" onclick="switchDriver('${n}')">
+                <div class="pos">${pData[n] || '-'}</div><div class="stripe" style="background:#${drivers[n].team_colour}"></div>
+                <div class="name">${drivers[n].name_acronym}</div><div class="gap">${gapText}</div></div>`;
+        }).join('');
+    }
+
+    function manualSeek() { virtualTime = parseInt(document.getElementById('timeSlider').value); if(isPlaying) lastRealTime = performance.now(); render(); }
+    function showStatus(txt) { const el = document.getElementById('status'); if(!txt) { el.style.display = 'none'; return; } el.innerText = txt; el.style.display = 'block'; }
+    </script>
+</body>
+</html>
