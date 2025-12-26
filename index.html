@@ -254,22 +254,22 @@
         const rect = mapCanvasRef.getBoundingClientRect();
         const relativeX = clientX - rect.left;
         const centerX = rect.width / 2;
-        if (relativeX < centerX) touchSteerDir = -1;
-        else touchSteerDir = 1;
+        if (relativeX < centerX) touchSteerDir = 1;
+        else touchSteerDir = -1;
     }
 
     function updateInput() {
         const mode = document.getElementById('mapMode').value;
         if (mode === 'sim') {
-            if (keys['ArrowLeft'] || touchSteerDir === -1) {
+            if (keys['ArrowLeft'] || touchSteerDir === 1) {
                 steerAngle = Math.max(-maxSteer, steerAngle - steerSpeed);
-            } else if (keys['ArrowRight'] || touchSteerDir === 1) {
+            } else if (keys['ArrowRight'] || touchSteerDir === -1) {
                 steerAngle = Math.min(maxSteer, steerAngle + steerSpeed);
             } else if (!isDragging) {
                 if (Math.abs(steerAngle) > 0.01) steerAngle *= returnSpeed;
                 else steerAngle = 0;
             }
-            rotationAngle += steerAngle * simTurnRate;
+            rotationAngle -= steerAngle * simTurnRate;
             render(); 
         } else if (mode === '3d') {
             if (keys['ArrowLeft']) { rotationAngle -= steerSpeed; render(); }
