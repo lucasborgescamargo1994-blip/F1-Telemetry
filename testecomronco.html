@@ -16,6 +16,23 @@
         button:hover { opacity: 0.9; }
         button:disabled { background: #555; cursor: not-allowed; }
 
+        /* Estilo Específico para o botão do Motor */
+        #engineBtn { 
+            background: #333; 
+            border: 1px solid #555; 
+            color: #888;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        #engineBtn.engine-on {
+            background: linear-gradient(45deg, #e10600, #ff5722);
+            color: white;
+            box-shadow: 0 0 10px rgba(225, 6, 0, 0.5);
+            border: 1px solid var(--f1-red);
+        }
+
         /* Layout Principal */
         .main-layout { display: grid; height: calc(100vh - 130px); grid-template-columns: 260px 1fr 320px; gap: 10px; padding: 10px; display: none; box-sizing: border-box; }
         .active { display: grid; }
@@ -133,6 +150,10 @@
             <option value="">Selecione a Sessão...</option>
         </select>
         
+        <button id="engineBtn" onclick="engineSound.toggle()" style="min-width: 120px;">
+            <span style="font-size: 14px;">🔊</span> LIGAR MOTOR
+        </button>
+
         <select id="mapMode" onchange="render()">
             <option value="2d">MAPA 2D (ESTÁTICO)</option>
             <option value="3d">MAPA 3D (CHASE CAM)</option>
@@ -202,38 +223,87 @@
     </div>
 
     <script>
-	
-	// 1. Inicializa o áudio (ajuste o caminho se necessário)
-const engineAudio = new Audio('motor.mp3');
-engineAudio.loop = true;
-engineAudio.volume = 0.5; // Ajuste o volume inicial
+    // --- NOVO SISTEMA DE SOM DO MOTOR (Web Audio API) ---
+    const engineSound = {
+        ctx: null,
+        buffer: null,
+        source: null,
+        gainNode: null,
+        isPlaying: false,
+        isLoaded: false,
+        baseSampleRPM: 11000, // RPM estimado do áudio original (ajustável)
 
-let isAudioPlaying = false;
+        init: async function() {
+            if (this.isLoaded) return true;
+            try {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                this.ctx = new AudioContext();
+                const response = await fetch('motor.mp3');
+                const arrayBuffer = await response.arrayBuffer();
+                this.buffer = await this.ctx.decodeAudioData(arrayBuffer);
+                
+                this.gainNode = this.ctx.createGain();
+                this.gainNode.gain.value = 0.5; // Volume inicial (50%)
+                this.gainNode.connect(this.ctx.destination);
+                
+                this.isLoaded = true;
+                return true;
+            } catch (e) {
+                console.error("Erro ao carregar som do motor:", e);
+                showStatus("FALHA AO CARREGAR AUDIO");
+                return false;
+            }
+        },
 
-// O navegador bloqueia áudio automático, então precisamos de um trigger de usuário
-function startEngine() {
-    if (!isAudioPlaying) {
-        engineAudio.play();
-        isAudioPlaying = true;
-    }
-}
+        toggle: async function() {
+            const btn = document.getElementById('engineBtn');
+            
+            if (this.isPlaying) {
+                this.stop();
+                btn.classList.remove('engine-on');
+                btn.innerHTML = '<span style="font-size: 14px;">🔊</span> LIGAR MOTOR';
+            } else {
+                if (!this.isLoaded) {
+                    btn.innerText = "CARREGANDO...";
+                    const success = await this.init();
+                    if (!success) return;
+                }
+                this.start();
+                btn.classList.add('engine-on');
+                btn.innerHTML = '<span style="font-size: 14px;">🔇</span> DESLIGAR';
+            }
+        },
 
-// 2. Função para atualizar o som baseada no RPM
-// Supondo que 'rpm' é o valor que você recebe da API do OpenF1
-function updateEngineSound(rpm) {
-    if (!isAudioPlaying) return;
+        start: function() {
+            if (this.ctx.state === 'suspended') this.ctx.resume();
+            
+            this.source = this.ctx.createBufferSource();
+            this.source.buffer = this.buffer;
+            this.source.loop = true;
+            this.source.connect(this.gainNode);
+            this.source.start(0);
+            this.isPlaying = true;
+        },
 
-    // Defina um RPM de referência (o RPM que o som do seu MP3 parece ter originalmente)
-    // Exemplo: se no MP3 o motor parece estar em marcha lenta (~3000 RPM)
-    const baseRPM = 3000; 
-    const maxRPM = 15000;
+        stop: function() {
+            if (this.source) {
+                this.source.stop();
+                this.source.disconnect();
+                this.source = null;
+            }
+            this.isPlaying = false;
+        },
 
-    // Calcula a razão de velocidade (mínimo de 0.5 para não parar e máximo de 4.0 para não distorcer demais)
-    let ratio = rpm / baseRPM;
-    ratio = Math.max(0.5, Math.min(ratio, 4.0));
+        update: function(rpm) {
+            if (!this.isPlaying || !this.source || !rpm) return;
+            // Cálculo do Pitch: RPM Atual / RPM Base do Sample
+            // Adiciona um clamp min/max para o som não ficar estranho
+            const safeRPM = Math.max(800, rpm); // Mínimo 800 RPM (idle)
+            const rate = safeRPM / this.baseSampleRPM;
+            this.source.playbackRate.value = rate;
+        }
+    };
 
-    engineAudio.playbackRate = ratio;
-}
     // VARIÁVEIS DE CONTROLE
     let keys = {}; 
     let steerAngle = 0; 
@@ -504,6 +574,10 @@ function updateEngineSound(rpm) {
         if (tele.length < 2 || locs.length < 2) return;
         const data = getInterpolatedData(virtualTime);
         
+        // --- ATUALIZAÇÃO DO SOM DO MOTOR ---
+        engineSound.update(data.rpm);
+        // -----------------------------------
+
         document.getElementById('timeVal').innerText = new Date(data.date - sessionStart).toISOString().substr(11, 8);
         document.getElementById('speedVal').innerText = Math.round(data.speed);
         document.getElementById('gearVal').innerText = data.gear || 'N';
@@ -646,7 +720,6 @@ function updateEngineSound(rpm) {
 
         } else {
             const data = tele[lastChartIdx] || { n_gear: 0, v_speed: 0, rpm: 0 };
-			updateEngineSound(latest.rpm);
             const speedVal = data.v_speed || data.speed || 0;
             const gearVal = data.n_gear || 0;
 
