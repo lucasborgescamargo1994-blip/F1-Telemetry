@@ -203,10 +203,10 @@
 
     <script>
 	
-	// --- SISTEMA DE ÁUDIO REALISTA (ARQUIVO LOCAL OU HOSPEDADO) ---
-let audioCtx = null, engineBuffer = null, sourceNode = null, gainNode = null, biquadFilter = null;
+	// --- SISTEMA DE ÁUDIO REALISTA (CORREÇÃO GITHUB) ---
+let audioCtx = null, engineBuffer = null, sourceNode = null, gainNode = null;
 
-// Se o arquivo estiver na mesma pasta que este HTML, use apenas o nome:
+// Use apenas o nome do arquivo se estiver na mesma pasta no GitHub
 const ENGINE_URL = "motor.mp3"; 
 
 async function initEngineAudio() {
@@ -214,26 +214,21 @@ async function initEngineAudio() {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     
     try {
+        // Buscando o áudio
         const response = await fetch(ENGINE_URL);
+        if (!response.ok) throw new Error("Arquivo não encontrado no servidor");
+        
         const arrayBuffer = await response.arrayBuffer();
         engineBuffer = await audioCtx.decodeAudioData(arrayBuffer);
         
-        // Criar controle de volume
         gainNode = audioCtx.createGain();
         gainNode.gain.value = 0;
-
-        // Criar um filtro de graves para dar mais "corpo" ao som local
-        biquadFilter = audioCtx.createBiquadFilter();
-        biquadFilter.type = "lowshelf";
-        biquadFilter.frequency.value = 250;
-        biquadFilter.gain.value = 5; // Aumenta o grave em 5db
-
-        gainNode.connect(biquadFilter);
-        biquadFilter.connect(audioCtx.destination);
+        gainNode.connect(audioCtx.destination);
         
-        console.log("Áudio local carregado com sucesso!");
+        console.log("Ronco do motor carregado com sucesso!");
     } catch (e) {
-        console.error("Erro ao carregar arquivo local: Verifique se o nome é motor.mp3 e se está na mesma pasta.", e);
+        console.error("Erro de áudio:", e);
+        // Fallback: se o arquivo falhar, não trava o resto do dashboard
     }
 }
 
@@ -249,12 +244,11 @@ function startEngine() {
 function updateEngineSound(rpm, throttle) {
     if (!audioCtx || !isPlaying || !sourceNode) return;
 
-    // Lógica de Pitch para F1 (Ajuste o 4500 se o som original for muito agudo ou grave)
-    // Se o motor real estiver em marcha lenta no áudio, use um divisor menor.
+    // Ajuste de Pitch (Ajuste o 5000 dependendo do tom do seu arquivo mp3)
     const pitch = Math.max(0.3, rpm / 5000); 
     sourceNode.playbackRate.setTargetAtTime(pitch, audioCtx.currentTime, 0.05);
 
-    // Volume dinâmico (mais alto quando acelera)
+    // Volume (mais alto com o pé no fundo)
     const vol = 0.1 + (throttle / 100) * 0.5;
     gainNode.gain.setTargetAtTime(vol, audioCtx.currentTime, 0.1);
 }
@@ -872,4 +866,5 @@ if(!audioCtx) {
 </body>
 
 </html>
+
 
