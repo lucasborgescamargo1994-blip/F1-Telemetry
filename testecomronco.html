@@ -203,54 +203,36 @@
 
     <script>
 	
-	// --- SISTEMA DE ÁUDIO REALISTA (CORREÇÃO GITHUB) ---
-let audioCtx = null, engineBuffer = null, sourceNode = null, gainNode = null;
+	// 1. Inicializa o áudio (ajuste o caminho se necessário)
+const engineAudio = new Audio('motor.mp3');
+engineAudio.loop = true;
+engineAudio.volume = 0.5; // Ajuste o volume inicial
 
-// Use apenas o nome do arquivo se estiver na mesma pasta no GitHub
-const ENGINE_URL = "motor.mp3"; 
+let isAudioPlaying = false;
 
-async function initEngineAudio() {
-    if (audioCtx) return;
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    
-    try {
-        // Buscando o áudio
-        const response = await fetch(ENGINE_URL);
-        if (!response.ok) throw new Error("Arquivo não encontrado no servidor");
-        
-        const arrayBuffer = await response.arrayBuffer();
-        engineBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-        
-        gainNode = audioCtx.createGain();
-        gainNode.gain.value = 0;
-        gainNode.connect(audioCtx.destination);
-        
-        console.log("Ronco do motor carregado com sucesso!");
-    } catch (e) {
-        console.error("Erro de áudio:", e);
-        // Fallback: se o arquivo falhar, não trava o resto do dashboard
+// O navegador bloqueia áudio automático, então precisamos de um trigger de usuário
+function startEngine() {
+    if (!isAudioPlaying) {
+        engineAudio.play();
+        isAudioPlaying = true;
     }
 }
 
-function startEngine() {
-    if (!engineBuffer || sourceNode) return;
-    sourceNode = audioCtx.createBufferSource();
-    sourceNode.buffer = engineBuffer;
-    sourceNode.loop = true;
-    sourceNode.connect(gainNode);
-    sourceNode.start(0);
-}
+// 2. Função para atualizar o som baseada no RPM
+// Supondo que 'rpm' é o valor que você recebe da API do OpenF1
+function updateEngineSound(rpm) {
+    if (!isAudioPlaying) return;
 
-function updateEngineSound(rpm, throttle) {
-    if (!audioCtx || !isPlaying || !sourceNode) return;
+    // Defina um RPM de referência (o RPM que o som do seu MP3 parece ter originalmente)
+    // Exemplo: se no MP3 o motor parece estar em marcha lenta (~3000 RPM)
+    const baseRPM = 3000; 
+    const maxRPM = 15000;
 
-    // Ajuste de Pitch (Ajuste o 5000 dependendo do tom do seu arquivo mp3)
-    const pitch = Math.max(0.3, rpm / 5000); 
-    sourceNode.playbackRate.setTargetAtTime(pitch, audioCtx.currentTime, 0.05);
+    // Calcula a razão de velocidade (mínimo de 0.5 para não parar e máximo de 4.0 para não distorcer demais)
+    let ratio = rpm / baseRPM;
+    ratio = Math.max(0.5, Math.min(ratio, 4.0));
 
-    // Volume (mais alto com o pé no fundo)
-    const vol = 0.1 + (throttle / 100) * 0.5;
-    gainNode.gain.setTargetAtTime(vol, audioCtx.currentTime, 0.1);
+    engineAudio.playbackRate = ratio;
 }
     // VARIÁVEIS DE CONTROLE
     let keys = {}; 
@@ -597,23 +579,7 @@ function updateEngineSound(rpm, throttle) {
 
     function playRadio(url) { radioPlayer.src = url; radioPlayer.play(); }
 
-    function togglePlay() {
-if(!audioCtx) {
-        initEngineAudio().then(() => {
-            startEngine();
-            isPlaying = true;
-            lastRealTime = performance.now();
-            requestAnimationFrame(loop);
-            document.getElementById('playBtn').innerText = "PAUSE";
-        });
-    } else {
-        if(audioCtx.state === 'suspended') audioCtx.resume();
-        isPlaying = !isPlaying;
-        document.getElementById('playBtn').innerText = isPlaying ? "PAUSE" : "PLAY";
-        if(isPlaying) { lastRealTime = performance.now(); requestAnimationFrame(loop); }
-    }
-
-	isPlaying = !isPlaying; document.getElementById('playBtn').innerText = isPlaying ? "PAUSE" : "PLAY"; if(isPlaying) { lastRealTime = performance.now(); animationFrame = requestAnimationFrame(loop); } else cancelAnimationFrame(animationFrame); }
+    function togglePlay() { isPlaying = !isPlaying; document.getElementById('playBtn').innerText = isPlaying ? "PAUSE" : "PLAY"; if(isPlaying) { lastRealTime = performance.now(); animationFrame = requestAnimationFrame(loop); } else cancelAnimationFrame(animationFrame); }
     
     function drawMap(carX, carY) {
         const dpr = window.devicePixelRatio || 1;
@@ -680,6 +646,7 @@ if(!audioCtx) {
 
         } else {
             const data = tele[lastChartIdx] || { n_gear: 0, v_speed: 0, rpm: 0 };
+			updateEngineSound(latest.rpm);
             const speedVal = data.v_speed || data.speed || 0;
             const gearVal = data.n_gear || 0;
 
@@ -864,7 +831,4 @@ if(!audioCtx) {
     function showStatus(txt) { const el = document.getElementById('status'); if(!txt) { el.style.display = 'none'; return; } el.innerText = txt; el.style.display = 'block'; }
     </script>
 </body>
-
 </html>
-
-
